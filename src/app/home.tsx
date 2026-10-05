@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -17,55 +17,100 @@ import ProdutoModal from "@/components/produtoModal";
 import BottomBar from "@/components/BottomBar";
 import { Produto } from "@/styles/produtoModalStyle";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+const IMAGEM = `${SERVIDOR}/fitbia/images`;
+
 export default function HomeScreen() {
   const [busca, setBusca] = useState("");
+  
+  const [queridinhos, setQueridinhos] = useState<any[]>([]);
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [semImagem, setSemImagem] = useState<number[]>([]);
 
-  // Array estruturado dos queridinhos (com id, dados e estado de favorito individual)
-  const [queridinhos, setQueridinhos] = useState([
-    {
-      id: 1,
-      nome: "Salada FitBia Power",
-      preco: 20.0,
-      valorStr: "R$ 20,00",
-      descricao: "Mix de folhas frescas, frango grelhado, mix de sementes e molho especial FitBia.",
-      imagem: require("@/assets/images/fotosfitbia/salada_fitbia_power.png"),
-      favorito: false,
-    },
-    {
-      id:2 ,
-      nome: "Salada FitBia Power",
-      preco: 20.0,
-      valorStr: "R$ 30,00",
-      descricao: "Mix de folhas frescas, frango grelhado, mix de sementes e molho especial FitBia.",
-      imagem: require("@/assets/images/fotosfitbia/sabado_1.png"),
-      favorito: false,
-    },
-    {
-      id: 3,
-      nome: "Salada FitBia",
-      preco: 20.0,
-      valorStr: "R$ 40,00",
-      descricao: "Alface americana, tiras de frango, croutons integrais e molho caesar leve.",
-      imagem: require("@/assets/images/fotosfitbia/salada_ceaser_fit.png"),
-      favorito: false,
-    },
-  ]);
-
-  // Estados para controlar o Modal
   const [modalVisivel, setModalVisivel] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
 
-  // Função para alternar o favorito de cada produto dinamicamente pelo ID
+  useEffect(() => {
+    async function carregarDadosHome() {
+      try {
+        console.log("A tentar ligar à API em:", API);
+
+        // 1. Buscar Produtos
+        const respProdutos = await fetch(`${API}/produtos`);
+        const textProdutos = await respProdutos.text();
+        
+        let jsonProdutos;
+        try {
+          jsonProdutos = JSON.parse(textProdutos);
+        } catch (e) {
+          console.error("Erro: A resposta de produtos não é um JSON válido. Recebido:", textProdutos);
+          return;
+        }
+
+        if (jsonProdutos && jsonProdutos.success && Array.isArray(jsonProdutos.data)) {
+          const produtosAtivos = jsonProdutos.data
+            .filter((produto: any) => produto.status_produto === "ATIVO")
+            .map((produto: any) => ({
+              ...produto,
+              favorito: false,
+            }));
+
+          const destaques = produtosAtivos.filter(
+            (produto: any) => produto.destaque_produto === "SIM"
+          );
+          setQueridinhos(destaques.length > 0 ? destaques : produtosAtivos);
+        } else {
+          console.warn("A estrutura de produtos da API veio diferente do esperado:", jsonProdutos);
+        }
+
+        // 2. Buscar Categorias
+        const respCategorias = await fetch(`${API}/categorias`);
+        const textCategorias = await respCategorias.text();
+
+        let jsonCategorias;
+        try {
+          jsonCategorias = JSON.parse(textCategorias);
+        } catch (e) {
+          console.error("Erro: A resposta de categorias não é um JSON válido. Recebido:", textCategorias);
+          return;
+        }
+
+        if (jsonCategorias && jsonCategorias.success && Array.isArray(jsonCategorias.data)) {
+          const categoriasAtivas = jsonCategorias.data
+            .filter((cat: any) => cat.ativa_categoria === "ATIVO" || cat.status_categoria === "ATIVO")
+            .sort((a: any, b: any) => (a.ordem_categoria || 0) - (b.ordem_categoria || 0));
+
+          setCategorias(categoriasAtivas);
+        } else {
+          console.warn("A estrutura de categorias da API veio diferente do esperado:", jsonCategorias);
+        }
+
+      } catch (erro) {
+        console.error("Erro crítico ao carregar dados da API na Home:", erro);
+      }
+    }
+
+    carregarDadosHome();
+  }, []);
+
   const toggleFavorito = (idItem: number) => {
     setQueridinhos((prev) =>
       prev.map((item) =>
-        item.id === idItem ? { ...item, favorito: !item.favorito } : item
+        item.id_produto === idItem ? { ...item, favorito: !item.favorito } : item
       )
     );
   };
 
-  const abrirModal = (produto: Produto) => {
-    setProdutoSelecionado(produto);
+  const abrirModal = (produto: any) => {
+    setProdutoSelecionado({
+      nome: produto.nome_produto,
+      preco: Number(produto.valor_produto),
+      descricao: produto.descricao_produto,
+      imagem: semImagem.includes(produto.id_produto) || !produto.foto_produto
+        ? { uri: `${IMAGEM}/produto/sem-imagem.png` }
+        : { uri: `${IMAGEM}/${produto.foto_produto}` },
+    });
     setModalVisivel(true);
   };
 
@@ -82,7 +127,6 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={homeStyle.conteudo}>
-              {/* Header: Saudação + Logo */}
               <View style={homeStyle.header}>
                 <View>
                   <Text style={homeStyle.saudacao}>Olá, Beatriz!</Text>
@@ -97,7 +141,6 @@ export default function HomeScreen() {
                 />
               </View>
 
-              {/* Campo de Busca */}
               <View style={homeStyle.buscarContainer}>
                 <Image
                   style={homeStyle.iconeBusca}
@@ -112,34 +155,14 @@ export default function HomeScreen() {
                 />
               </View>
 
-              {/* Banner Promocional */}
               <View style={homeStyle.bannerWrapper}>
-                <Pressable
-                  style={homeStyle.arrowLeft}
-                  onPress={() => {
-                    /* ação de voltar banner */
-                  }}
-                >
-                  <Text style={homeStyle.arrowText}>{"<"}</Text>
-                </Pressable>
-
                 <Image
                   source={require("@/assets/images/fitbia/banner1.png")}
                   style={homeStyle.banner}
                   resizeMode="cover"
                 />
-
-                <Pressable
-                  style={homeStyle.arrowRight}
-                  onPress={() => {
-                    /* ação de avançar banner */
-                  }}
-                >
-                  <Text style={homeStyle.arrowText}>{">"}</Text>
-                </Pressable>
               </View>
 
-              {/* Seção Categorias */}
               <View style={homeStyle.categoriasSection}>
                 <Text style={homeStyle.tituloSecao}>
                   Navegue por nossas categorias
@@ -149,74 +172,31 @@ export default function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={homeStyle.categoriasList}
                 >
-                  <Pressable 
-                    style={homeStyle.categoriaItem}
-                    onPress={() => router.replace("/menu" as any)}
-                  >
-                    <View style={homeStyle.categoriaIconeBox}>
-                      <Image
-                        style={homeStyle.categoriaIcone}
-                        source={require("@/assets/images/fitbia/potes.png")}
-                      />
-                    </View>
-                    <Text style={homeStyle.categoriaTexto}>Marmitas</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    style={homeStyle.categoriaItem}
-                    onPress={() => router.replace("/menu" as any)}
-                  >
-                    <View style={homeStyle.categoriaIconeBox}>
-                      <Image
-                        style={homeStyle.categoriaIcone}
-                        source={require("@/assets/images/fitbia/sanduiche.png")}
-                      />
-                    </View>
-                    <Text style={homeStyle.categoriaTexto}>Lanches</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    style={homeStyle.categoriaItem}
-                    onPress={() => router.replace("/menu" as any)}
-                  >
-                    <View style={homeStyle.categoriaIconeBox}>
-                      <Image
-                        style={homeStyle.categoriaIcone}
-                        source={require("@/assets/images/fitbia/morango.png")}
-                      />
-                    </View>
-                    <Text style={homeStyle.categoriaTexto}>Frutas</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    style={homeStyle.categoriaItem}
-                    onPress={() => router.replace("/menu" as any)}
-                  >
-                    <View style={homeStyle.categoriaIconeBox}>
-                      <Image
-                        style={homeStyle.categoriaIcone}
-                        source={require("@/assets/images/fitbia/refrigerantes.png")}
-                      />
-                    </View>
-                    <Text style={homeStyle.categoriaTexto}>Bebidas</Text>
-                  </Pressable>
-
-                  <Pressable 
-                    style={homeStyle.categoriaItem}
-                    onPress={() => router.replace("/menu" as any)}
-                  >
-                    <View style={homeStyle.categoriaIconeBox}>
-                      <Image
-                        style={homeStyle.categoriaIcone}
-                        source={require("@/assets/images/fitbia/bolo.png")}
-                      />
-                    </View>
-                    <Text style={homeStyle.categoriaTexto}>Doces</Text>
-                  </Pressable>
+                  {categorias.map((categoria) => (
+                    <Pressable 
+                      key={categoria.id_categoria}
+                      style={homeStyle.categoriaItem}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/menu" as any,
+                          params: { id_categoria: categoria.id_categoria },
+                        })
+                      }
+                    >
+                      <View style={homeStyle.categoriaIconeBox}>
+                        <Image
+                          style={homeStyle.categoriaIcone}
+                          source={require("@/assets/images/fitbia/potes.png")}
+                        />
+                      </View>
+                      <Text style={homeStyle.categoriaTexto}>
+                        {categoria.nome_categoria}
+                      </Text>
+                    </Pressable>
+                  ))}
                 </ScrollView>
               </View>
 
-              {/* Seção Queridinhos com .map() */}
               <View style={homeStyle.produtosSection}>
                 <Text style={homeStyle.tituloSecao}>
                   Os queridinhos da casa, peça já!
@@ -226,57 +206,62 @@ export default function HomeScreen() {
                   showsHorizontalScrollIndicator={false}
                   contentContainerStyle={homeStyle.produtosList}
                 >
-                  {queridinhos.map((produto) => (
-                    <View style={homeStyle.cardProduto} key={produto.id}>
-                      <Image
-                        source={produto.imagem}
-                        style={homeStyle.imgProduto}
-                      />
-                      <Pressable
-                        style={homeStyle.btnFavorito}
-                        onPress={() => toggleFavorito(produto.id)}
-                      >
+                  {queridinhos.map((produto) => {
+                    const imagemUri =
+                      semImagem.includes(produto.id_produto) || !produto.foto_produto
+                        ? `${IMAGEM}/produto/sem-imagem.png`
+                        : `${IMAGEM}/${produto.foto_produto}`;
+
+                    const valorFormatado = `R$ ${Number(produto.valor_produto)
+                      .toFixed(2)
+                      .replace(".", ",")}`;
+
+                    return (
+                      <View style={homeStyle.cardProduto} key={produto.id_produto}>
                         <Image
-                          source={
-                            produto.favorito
-                              ? require("@/assets/images/fitbia/coracaovermelho.png")
-                              : require("@/assets/images/fitbia/coracao.png")
-                          }
-                          style={homeStyle.iconeFavorito}
+                          source={{ uri: imagemUri }}
+                          style={homeStyle.imgProduto}
+                          onError={() => {
+                            setSemImagem((imgs) => [...imgs, produto.id_produto]);
+                          }}
                         />
-                      </Pressable>
-                      <Text style={homeStyle.nomeProduto}>
-                        {produto.nome}
-                      </Text>
-                      <View style={homeStyle.rodapeCard}>
-                        <Text style={homeStyle.precoProduto}>{produto.valorStr}</Text>
                         <Pressable
-                          style={homeStyle.btnAdd}
-                          onPress={() =>
-                            abrirModal({
-                              nome: produto.nome,
-                              preco: produto.preco,
-                              descricao: produto.descricao,
-                              imagem: produto.imagem,
-                            })
-                          }
+                          style={homeStyle.btnFavorito}
+                          onPress={() => toggleFavorito(produto.id_produto)}
                         >
-                          <Text style={homeStyle.txtBtnAdd}>+</Text>
+                          <Image
+                            source={
+                              produto.favorito
+                                ? require("@/assets/images/fitbia/coracaovermelho.png")
+                                : require("@/assets/images/fitbia/coracao.png")
+                            }
+                            style={homeStyle.iconeFavorito}
+                          />
                         </Pressable>
+                        <Text style={homeStyle.nomeProduto} numberOfLines={1}>
+                          {produto.nome_produto}
+                        </Text>
+                        <View style={homeStyle.rodapeCard}>
+                          <Text style={homeStyle.precoProduto}>{valorFormatado}</Text>
+                          <Pressable
+                            style={homeStyle.btnAdd}
+                            onPress={() => abrirModal(produto)}
+                          >
+                            <Text style={homeStyle.txtBtnAdd}>+</Text>
+                          </Pressable>
+                        </View>
                       </View>
-                    </View>
-                  ))}
+                    );
+                  })}
                 </ScrollView>
               </View>
             </View>
           </ScrollView>
 
-          {/* Bottom Navigation Bar Importado */}
           <BottomBar abaAtiva="home" />
         </SafeAreaView>
       </ImageBackground>
 
-      {/* Componente Modal de Produto */}
       <ProdutoModal
         visible={modalVisivel}
         onClose={() => setModalVisivel(false)}

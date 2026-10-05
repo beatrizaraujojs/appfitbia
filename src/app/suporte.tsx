@@ -63,7 +63,7 @@ export default function SobreScreen() {
               <View style={sobreStyle.secaoLinks}>
                 <Pressable
                   style={sobreStyle.opcaoItem}
-                  onPress={() => router.push("/")}
+                  onPress={() => router.push("/duvidasFrequentes")}
                 >
                   <Text style={sobreStyle.opcaoTexto}>Dúvidas frequentes</Text>
                   <Text style={sobreStyle.opcaoSeta}>&gt;</Text>
