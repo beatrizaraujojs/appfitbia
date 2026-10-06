@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Modal,
   View,
@@ -8,32 +8,81 @@ import {
   ScrollView,
   TextInput,
 } from "react-native";
-import produtoModalStyle, { ProdutoModalProps } from "../styles/produtoModalStyle";
+import produtoModalStyle from "../styles/produtoModalStyle";
 
 export default function ProdutoModal({
   visible,
   onClose,
   produto,
-}: ProdutoModalProps) {
+}: {
+  visible: boolean;
+  onClose: () => void;
+  produto: any;
+}) {
   if (!produto) return null;
 
   const [qtdPrincipal, setQtdPrincipal] = useState(1);
-  const [qtdArroz, setQtdArroz] = useState(1);
-  const [qtdFilade, setQtdFilade] = useState(2);
-  const [arrozSelected, setArrozSelected] = useState(false);
-  const [filadeSelected, setFiladeSelected] = useState(false);
   const [observacao, setObservacao] = useState("");
+  
+  // Estado para controlar os adicionais selecionados: { [idAdicional]: quantidade }
+  const [adicionaisSelecionados, setAdicionaisSelecionados] = useState<{ [key: number]: number }>({});
 
-  // Valorações dos adicionais
-  const precoArroz = 5.0;
-  const precoFilade = 18.0;
+  useEffect(() => {
+    setQtdPrincipal(1);
+    setObservacao("");
+    setAdicionaisSelecionados({});
+  }, [produto]);
+
+  // Captura os grupos independentemente de vir em snake_case ou camelCase
+  const gruposAdicionais = 
+    produto.grupos_adicionais || 
+    produto.gruposAdicionais || 
+    produto.grupos || 
+    [];
+
+  const handleToggleAdicional = (idAdicional: number) => {
+    setAdicionaisSelecionados((prev) => {
+      const novo = { ...prev };
+      if (novo[idAdicional]) {
+        delete novo[idAdicional];
+      } else {
+        novo[idAdicional] = 1;
+      }
+      return novo;
+    });
+  };
+
+  const handleMudarQtdAdicional = (idAdicional: number, delta: number) => {
+    setAdicionaisSelecionados((prev) => {
+      const atual = prev[idAdicional] || 1;
+      const novaQtd = atual + delta;
+      const novo = { ...prev };
+      if (novaQtd <= 0) {
+        delete novo[idAdicional];
+      } else {
+        novo[idAdicional] = novaQtd;
+      }
+      return novo;
+    });
+  };
 
   // Cálculo Dinâmico do Total
-  const totalAdicionais =
-    (arrozSelected ? precoArroz * qtdArroz : 0) +
-    (filadeSelected ? precoFilade * qtdFilade : 0);
+  let totalAdicionais = 0;
+  if (gruposAdicionais.length > 0) {
+    gruposAdicionais.forEach((grupo: any) => {
+      const itensAdicionais = grupo.adicionais || grupo.itens || [];
+      itensAdicionais.forEach((adicional: any) => {
+        const id = adicional.id_adicional || adicional.id;
+        if (adicionaisSelecionados[id]) {
+          const preco = Number(adicional.preco_adicional || adicional.preco || 0);
+          totalAdicionais += preco * adicionaisSelecionados[id];
+        }
+      });
+    });
+  }
 
-  const valorTotal = (produto.preco + totalAdicionais) * qtdPrincipal;
+  const precoBase = Number(produto.preco_base_produto || produto.preco_produto || produto.preco || 0);
+  const valorTotal = (precoBase + totalAdicionais) * qtdPrincipal;
 
   return (
     <Modal
@@ -43,22 +92,23 @@ export default function ProdutoModal({
       onRequestClose={onClose}
     >
       <View style={produtoModalStyle.overlay}>
-        {/* Clique fora para fechar */}
         <Pressable style={produtoModalStyle.backdrop} onPress={onClose} />
 
         <View style={produtoModalStyle.sheetContainer}>
-          {/* Tracinho indicador de arraste */}
           <View style={produtoModalStyle.dragHandle} />
 
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Foto do Produto */}
             <Image
-              source={produto.imagem}
+              source={typeof produto.imagem === 'number' ? produto.imagem : { uri: produto.foto_produto || produto.foto_uri || produto.imagem }}
               style={produtoModalStyle.imagemProduto}
             />
 
             {/* Título e Contador Principal */}
-            <Text style={produtoModalStyle.nomeProduto}>{produto.nome}</Text>
+            <Text style={produtoModalStyle.nomeProduto}>
+              {produto.nome_produto || produto.nome}
+            </Text>
+            
             <View style={produtoModalStyle.linhaQtdPreco}>
               <View style={produtoModalStyle.controleQtd}>
                 <Pressable
@@ -76,93 +126,82 @@ export default function ProdutoModal({
                 </Pressable>
               </View>
               <Text style={produtoModalStyle.precoBase}>
-                R$ {produto.preco.toFixed(2).replace(".", ",")}
+                R$ {precoBase.toFixed(2).replace(".", ",")}
               </Text>
             </View>
 
             {/* Descrição */}
-            <Text style={produtoModalStyle.descricao}>{produto.descricao}</Text>
+            <Text style={produtoModalStyle.descricao}>
+              {produto.descricao_produto || produto.descricao}
+            </Text>
 
-            {/* Lista de Adicionais */}
-            <Text style={produtoModalStyle.tituloAdicionais}>Adicionais</Text>
+            {/* Renderização Dinâmica de Grupos e Adicionais */}
+            {gruposAdicionais.length > 0 && (
+              <>
+                {gruposAdicionais.map((grupo: any, indexGrupo: number) => {
+                  const nomeGrupo = grupo.nome_grupo_adicional || grupo.nome || grupo.titulo;
+                  const itensAdicionais = grupo.adicionais || grupo.itens || [];
 
-            {/* Adicional 1: Arroz Integral */}
-            <View style={produtoModalStyle.itemAdicional}>
-              <Pressable
-                style={produtoModalStyle.checkboxArea}
-                onPress={() => setArrozSelected(!arrozSelected)}
-              >
-                <View
-                  style={[
-                    produtoModalStyle.checkbox,
-                    arrozSelected && produtoModalStyle.checkboxChecado,
-                  ]}
-                />
-                <View>
-                  <Text style={produtoModalStyle.nomeAdicional}>
-                    Arroz Integral
-                  </Text>
-                  <Text style={produtoModalStyle.precoAdicional}>
-                    + R$ 5,00
-                  </Text>
-                </View>
-              </Pressable>
+                  return (
+                    <View key={grupo.id_grupo_adicional || grupo.id || indexGrupo}>
+                      {nomeGrupo && (
+                        <Text style={produtoModalStyle.tituloAdicionais}>{nomeGrupo}</Text>
+                      )}
+                      
+                      {itensAdicionais.map((adicional: any, indexAd: number) => {
+                        const adId = adicional.id_adicional || adicional.id || indexAd;
+                        const adNome = adicional.nome_adicional || adicional.nome;
+                        const adPreco = Number(adicional.preco_adicional || adicional.preco || 0);
+                        const isSelected = !!adicionaisSelecionados[adId];
+                        const qtdAd = adicionaisSelecionados[adId] || 1;
 
-              <View style={produtoModalStyle.controleQtdPequeno}>
-                <Pressable
-                  onPress={() => setQtdArroz((q) => (q > 1 ? q - 1 : 1))}
-                  style={produtoModalStyle.btnMenosPequeno}
-                >
-                  <Text style={produtoModalStyle.txtBtnMenosPequeno}>−</Text>
-                </Pressable>
-                <Text style={produtoModalStyle.txtQtdPequeno}>{qtdArroz}</Text>
-                <Pressable
-                  onPress={() => setQtdArroz((q) => q + 1)}
-                  style={produtoModalStyle.btnMaisPequeno}
-                >
-                  <Text style={produtoModalStyle.txtBtnMaisPequeno}>+</Text>
-                </Pressable>
-              </View>
-            </View>
+                        return (
+                          <View style={produtoModalStyle.itemAdicional} key={adId}>
+                            <Pressable
+                              style={produtoModalStyle.checkboxArea}
+                              onPress={() => handleToggleAdicional(adId)}
+                            >
+                              <View
+                                style={[
+                                  produtoModalStyle.checkbox,
+                                  isSelected && produtoModalStyle.checkboxChecado,
+                                ]}
+                              />
+                              <View>
+                                <Text style={produtoModalStyle.nomeAdicional}>
+                                  {adNome}
+                                </Text>
+                                <Text style={produtoModalStyle.precoAdicional}>
+                                  + R$ {adPreco.toFixed(2).replace(".", ",")}
+                                </Text>
+                              </View>
+                            </Pressable>
 
-            {/* Adicional 2: Filé de Tilápia */}
-            <View style={produtoModalStyle.itemAdicional}>
-              <Pressable
-                style={produtoModalStyle.checkboxArea}
-                onPress={() => setFiladeSelected(!filadeSelected)}
-              >
-                <View
-                  style={[
-                    produtoModalStyle.checkbox,
-                    filadeSelected && produtoModalStyle.checkboxChecado,
-                  ]}
-                />
-                <View>
-                  <Text style={produtoModalStyle.nomeAdicional}>
-                    Filé de tilápia
-                  </Text>
-                  <Text style={produtoModalStyle.precoAdicional}>
-                    + R$ 18,00
-                  </Text>
-                </View>
-              </Pressable>
-
-              <View style={produtoModalStyle.controleQtdPequeno}>
-                <Pressable
-                  onPress={() => setQtdFilade((q) => (q > 1 ? q - 1 : 1))}
-                  style={produtoModalStyle.btnMenosPequeno}
-                >
-                  <Text style={produtoModalStyle.txtBtnMenosPequeno}>−</Text>
-                </Pressable>
-                <Text style={produtoModalStyle.txtQtdPequeno}>{qtdFilade}</Text>
-                <Pressable
-                  onPress={() => setQtdFilade((q) => q + 1)}
-                  style={produtoModalStyle.btnMaisPequeno}
-                >
-                  <Text style={produtoModalStyle.txtBtnMaisPequeno}>+</Text>
-                </Pressable>
-              </View>
-            </View>
+                            {isSelected && (
+                              <View style={produtoModalStyle.controleQtdPequeno}>
+                                <Pressable
+                                  onPress={() => handleMudarQtdAdicional(adId, -1)}
+                                  style={produtoModalStyle.btnMenosPequeno}
+                                >
+                                  <Text style={produtoModalStyle.txtBtnMenosPequeno}>−</Text>
+                                </Pressable>
+                                <Text style={produtoModalStyle.txtQtdPequeno}>{qtdAd}</Text>
+                                <Pressable
+                                  onPress={() => handleMudarQtdAdicional(adId, 1)}
+                                  style={produtoModalStyle.btnMaisPequeno}
+                                >
+                                  <Text style={produtoModalStyle.txtBtnMaisPequeno}>+</Text>
+                                </Pressable>
+                              </View>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  );
+                })}
+              </>
+            )}
 
             {/* Campo de Observações */}
             <Text style={produtoModalStyle.tituloAdicionais}>Observações</Text>
@@ -177,12 +216,17 @@ export default function ProdutoModal({
               onChangeText={setObservacao}
             />
 
-            {/* Totalizador e Botão de Ação */}
+            {/* Rodapé / Botão */}
             <View style={produtoModalStyle.rodape}>
               <Text style={produtoModalStyle.valorTotal}>
                 R$ {valorTotal.toFixed(2).replace(".", ",")}
               </Text>
-              <Pressable style={produtoModalStyle.btnAdicionar} onPress={onClose}>
+              <Pressable 
+                style={produtoModalStyle.btnAdicionar} 
+                onPress={() => {
+                  onClose();
+                }}
+              >
                 <Text style={produtoModalStyle.txtBtnAdicionar}>
                   Adicionar ao carrinho
                 </Text>

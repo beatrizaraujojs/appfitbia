@@ -79,22 +79,21 @@ const menuStyle = StyleSheet.create({
     ...({ outlineStyle: "none" } as any),
   },
 
-  /* --- ABAS DE CATEGORIAS CENTRALIZADAS --- */
+  /* --- ABAS DE CATEGORIAS (CORRIGIDO PARA NÃO QUEBRAR) --- */
   abasCentralizadas: {
     width: "100%",
-    alignItems: "center",
     marginBottom: 16,
   },
   abasContainer: {
     flexDirection: "row",
-    justifyContent: "center",
     alignItems: "center",
     gap: 16,
-    paddingBottom: 4,
+    paddingHorizontal: 4,
   },
   abaItem: {
     alignItems: "center",
     paddingBottom: 4,
+    paddingHorizontal: 4,
   },
   abaTexto: {
     fontSize: 14,
