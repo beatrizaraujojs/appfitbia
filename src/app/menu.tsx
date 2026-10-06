@@ -92,6 +92,15 @@ export default function MenuScreen() {
       imagem: require("@/assets/images/fotosfitbia/wrap_frango.png"),
       favorito: false,
     },
+    {
+      id: 4,
+      nome: "Wrap de Frango",
+      descricao: "O caldo de abóbora é uma opção prática, saborosa e nutritiva, ideal para aquecer e tornar as refeições mais leves.",
+      preco: 27.8,
+      precoStr: "R$ 30,50",
+      imagem: require("@/assets/images/fotosfitbia/wrap_frango.png"),
+      favorito: false,
+    },
   ]);
 
   // Estados para controlar o Modal
