@@ -19,7 +19,7 @@ import { Produto } from "@/styles/produtoModalStyle";
 
 const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
-const IMAGEM = `${SERVIDOR}/fitbia/images`;
+const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function HomeScreen() {
   const [busca, setBusca] = useState("");
@@ -212,7 +212,7 @@ export default function HomeScreen() {
                         ? `${IMAGEM}/produto/sem-imagem.png`
                         : `${IMAGEM}/${produto.foto_produto}`;
 
-                    const valorFormatado = `R$ ${Number(produto.valor_produto)
+                  const valorFormatado = `R$ ${Number(produto.preco_base_produto)
                       .toFixed(2)
                       .replace(".", ",")}`;
 
