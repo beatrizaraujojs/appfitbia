@@ -22,13 +22,15 @@ const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function HomeScreen() {
   const [busca, setBusca] = useState("");
-  
+
   const [queridinhos, setQueridinhos] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
   const [semImagem, setSemImagem] = useState<number[]>([]);
 
   const [modalVisivel, setModalVisivel] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
+  const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(
+    null,
+  );
 
   useEffect(() => {
     async function carregarDadosHome() {
@@ -38,16 +40,23 @@ export default function HomeScreen() {
         // 1. Buscar Produtos
         const respProdutos = await fetch(`${API}/produtos`);
         const textProdutos = await respProdutos.text();
-        
+
         let jsonProdutos;
         try {
           jsonProdutos = JSON.parse(textProdutos);
         } catch (e) {
-          console.error("Erro: A resposta de produtos não é um JSON válido. Recebido:", textProdutos);
+          console.error(
+            "Erro: A resposta de produtos não é um JSON válido. Recebido:",
+            textProdutos,
+          );
           return;
         }
 
-        if (jsonProdutos && jsonProdutos.success && Array.isArray(jsonProdutos.data)) {
+        if (
+          jsonProdutos &&
+          jsonProdutos.success &&
+          Array.isArray(jsonProdutos.data)
+        ) {
           const produtosAtivos = jsonProdutos.data
             .filter((produto: any) => produto.status_produto === "ATIVO")
             .map((produto: any) => ({
@@ -56,11 +65,14 @@ export default function HomeScreen() {
             }));
 
           const destaques = produtosAtivos.filter(
-            (produto: any) => produto.destaque_produto === "SIM"
+            (produto: any) => produto.destaque_produto === "SIM",
           );
           setQueridinhos(destaques.length > 0 ? destaques : produtosAtivos);
         } else {
-          console.warn("A estrutura de produtos da API veio diferente do esperado:", jsonProdutos);
+          console.warn(
+            "A estrutura de produtos da API veio diferente do esperado:",
+            jsonProdutos,
+          );
         }
 
         // 2. Buscar Categorias
@@ -71,20 +83,36 @@ export default function HomeScreen() {
         try {
           jsonCategorias = JSON.parse(textCategorias);
         } catch (e) {
-          console.error("Erro: A resposta de categorias não é um JSON válido. Recebido:", textCategorias);
+          console.error(
+            "Erro: A resposta de categorias não é um JSON válido. Recebido:",
+            textCategorias,
+          );
           return;
         }
 
-        if (jsonCategorias && jsonCategorias.success && Array.isArray(jsonCategorias.data)) {
+        if (
+          jsonCategorias &&
+          jsonCategorias.success &&
+          Array.isArray(jsonCategorias.data)
+        ) {
           const categoriasAtivas = jsonCategorias.data
-            .filter((cat: any) => cat.ativa_categoria === "ATIVO" || cat.status_categoria === "ATIVO")
-            .sort((a: any, b: any) => (a.ordem_categoria || 0) - (b.ordem_categoria || 0));
+            .filter(
+              (cat: any) =>
+                cat.ativa_categoria === "ATIVO" ||
+                cat.status_categoria === "ATIVO",
+            )
+            .sort(
+              (a: any, b: any) =>
+                (a.ordem_categoria || 0) - (b.ordem_categoria || 0),
+            );
 
           setCategorias(categoriasAtivas);
         } else {
-          console.warn("A estrutura de categorias da API veio diferente do esperado:", jsonCategorias);
+          console.warn(
+            "A estrutura de categorias da API veio diferente do esperado:",
+            jsonCategorias,
+          );
         }
-
       } catch (erro) {
         console.error("Erro crítico ao carregar dados da API na Home:", erro);
       }
@@ -96,8 +124,10 @@ export default function HomeScreen() {
   const toggleFavorito = (idItem: number) => {
     setQueridinhos((prev) =>
       prev.map((item) =>
-        item.id_produto === idItem ? { ...item, favorito: !item.favorito } : item
-      )
+        item.id_produto === idItem
+          ? { ...item, favorito: !item.favorito }
+          : item,
+      ),
     );
   };
 
@@ -166,7 +196,7 @@ export default function HomeScreen() {
                   contentContainerStyle={homeStyle.categoriasList}
                 >
                   {categorias.map((categoria) => (
-                    <Pressable 
+                    <Pressable
                       key={categoria.id_categoria}
                       style={homeStyle.categoriaItem}
                       onPress={() =>
@@ -176,15 +206,14 @@ export default function HomeScreen() {
                         })
                       }
                     >
-                      <View style={homeStyle.categoriaIconeBox}>
-                        <Image
-                          style={homeStyle.categoriaIcone}
-                          source={require("@/assets/images/fitbia/potes.png")}
-                        />
+                      <View style={homeStyle.categoriaCard}>
+                        <Text
+                          style={homeStyle.categoriaTexto}
+                          numberOfLines={1}
+                        >
+                          {categoria.nome_categoria}
+                        </Text>
                       </View>
-                      <Text style={homeStyle.categoriaTexto}>
-                        {categoria.nome_categoria}
-                      </Text>
                     </Pressable>
                   ))}
                 </ScrollView>
@@ -201,21 +230,30 @@ export default function HomeScreen() {
                 >
                   {queridinhos.map((produto) => {
                     const imagemUri =
-                      semImagem.includes(produto.id_produto) || !produto.foto_produto
+                      semImagem.includes(produto.id_produto) ||
+                      !produto.foto_produto
                         ? `${IMAGEM}/produto/sem-imagem.png`
                         : `${IMAGEM}/${produto.foto_produto}`;
 
-                    const valorFormatado = `R$ ${Number(produto.preco_base_produto || 0)
+                    const valorFormatado = `R$ ${Number(
+                      produto.preco_base_produto || 0,
+                    )
                       .toFixed(2)
                       .replace(".", ",")}`;
 
                     return (
-                      <View style={homeStyle.cardProduto} key={produto.id_produto}>
+                      <View
+                        style={homeStyle.cardProduto}
+                        key={produto.id_produto}
+                      >
                         <Image
                           source={{ uri: imagemUri }}
                           style={homeStyle.imgProduto}
                           onError={() => {
-                            setSemImagem((imgs) => [...imgs, produto.id_produto]);
+                            setSemImagem((imgs) => [
+                              ...imgs,
+                              produto.id_produto,
+                            ]);
                           }}
                         />
                         <Pressable
@@ -235,7 +273,9 @@ export default function HomeScreen() {
                           {produto.nome_produto}
                         </Text>
                         <View style={homeStyle.rodapeCard}>
-                          <Text style={homeStyle.precoProduto}>{valorFormatado}</Text>
+                          <Text style={homeStyle.precoProduto}>
+                            {valorFormatado}
+                          </Text>
                           <Pressable
                             style={homeStyle.btnAdd}
                             onPress={() => abrirModal(produto)}

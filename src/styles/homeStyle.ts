@@ -98,34 +98,27 @@ const homeStyle = StyleSheet.create({
   },
   categoriasList: {
     flexDirection: "row",
-    paddingLeft: 10,
-    paddingRight: 20,
-    gap: 15,
+    paddingHorizontal: 16,
+    gap: 12, 
   },
   categoriaItem: {
     alignItems: "center",
-    width: 60,
   },
-  categoriaIconeBox: {
-    width: 56,
-    height: 56,
+  categoriaCard: {
+    flexDirection: "row", 
     backgroundColor: "#3B4E38",
     borderRadius: 16,
+    paddingHorizontal: 14,
+    width: 100,
+    height: 35, 
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  categoriaIcone: {
-    width: 28,
-    height: 28,
-    tintColor: "#FFFFFF",
-    resizeMode: "contain",
+    gap: 8,
   },
   categoriaTexto: {
     fontSize: 12,
-    color: "#333333",
+    color: "#FFFFFF",
     fontWeight: "500",
-    textAlign: "center",
   },
 
   /* --- SEÇÃO DE PRODUTOS --- */
