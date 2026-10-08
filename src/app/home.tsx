@@ -15,7 +15,6 @@ import globalStyle from "@/styles/globalStyle";
 import homeStyle from "@/styles/homeStyle";
 import ProdutoModal from "@/components/produtoModal";
 import BottomBar from "@/components/BottomBar";
-import { Produto } from "@/styles/produtoModalStyle";
 
 const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
@@ -29,7 +28,7 @@ export default function HomeScreen() {
   const [semImagem, setSemImagem] = useState<number[]>([]);
 
   const [modalVisivel, setModalVisivel] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
+  const [produtoSelecionado, setProdutoSelecionado] = useState<any | null>(null);
 
   useEffect(() => {
     async function carregarDadosHome() {
@@ -103,14 +102,8 @@ export default function HomeScreen() {
   };
 
   const abrirModal = (produto: any) => {
-    setProdutoSelecionado({
-      nome: produto.nome_produto,
-      preco: Number(produto.valor_produto),
-      descricao: produto.descricao_produto,
-      imagem: semImagem.includes(produto.id_produto) || !produto.foto_produto
-        ? { uri: `${IMAGEM}/produto/sem-imagem.png` }
-        : { uri: `${IMAGEM}/${produto.foto_produto}` },
-    });
+    // Passa o produto completo da API (com grupos, adicionais e preços) diretamente
+    setProdutoSelecionado(produto);
     setModalVisivel(true);
   };
 
@@ -212,7 +205,7 @@ export default function HomeScreen() {
                         ? `${IMAGEM}/produto/sem-imagem.png`
                         : `${IMAGEM}/${produto.foto_produto}`;
 
-                  const valorFormatado = `R$ ${Number(produto.preco_base_produto)
+                    const valorFormatado = `R$ ${Number(produto.preco_base_produto || 0)
                       .toFixed(2)
                       .replace(".", ",")}`;
 
@@ -262,11 +255,14 @@ export default function HomeScreen() {
         </SafeAreaView>
       </ImageBackground>
 
-      <ProdutoModal
-        visible={modalVisivel}
-        onClose={() => setModalVisivel(false)}
-        produto={produtoSelecionado}
-      />
+      {/* Proteção para garantir que o componente só monta quando visível e carregado */}
+      {modalVisivel && produtoSelecionado && (
+        <ProdutoModal
+          visible={modalVisivel}
+          onClose={() => setModalVisivel(false)}
+          produto={produtoSelecionado}
+        />
+      )}
     </View>
   );
 }

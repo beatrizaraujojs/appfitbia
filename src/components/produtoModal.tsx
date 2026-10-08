@@ -7,8 +7,12 @@ import {
   Pressable,
   ScrollView,
   TextInput,
+  Alert,
 } from "react-native";
 import produtoModalStyle from "../styles/produtoModalStyle";
+
+const SERVIDOR = "http://localhost:8081";
+const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function ProdutoModal({
   visible,
@@ -23,8 +27,6 @@ export default function ProdutoModal({
 
   const [qtdPrincipal, setQtdPrincipal] = useState(1);
   const [observacao, setObservacao] = useState("");
-  
-  // Estado para controlar os adicionais selecionados: { [idAdicional]: quantidade }
   const [adicionaisSelecionados, setAdicionaisSelecionados] = useState<{ [key: number]: number }>({});
 
   useEffect(() => {
@@ -33,33 +35,89 @@ export default function ProdutoModal({
     setAdicionaisSelecionados({});
   }, [produto]);
 
-  // Captura os grupos independentemente de vir em snake_case ou camelCase
+  // Captura os grupos vindos do Laravel (snake_case)
   const gruposAdicionais = 
     produto.grupos_adicionais || 
     produto.gruposAdicionais || 
     produto.grupos || 
     [];
 
-  const handleToggleAdicional = (idAdicional: number) => {
+  // Conta quantos itens já foram selecionados num determinado grupo
+  const contarSelecionadosNoGrupo = (grupo: any, adicionaisAtuais: { [key: number]: number }) => {
+    const itensAdicionais = grupo.adicionais || grupo.itens || [];
+    let totalGrupo = 0;
+    itensAdicionais.forEach((adicional: any) => {
+      const adId = adicional.id_adicional || adicional.id;
+      if (adicionaisAtuais[adId]) {
+        totalGrupo += adicionaisAtuais[adId];
+      }
+    });
+    return totalGrupo;
+  };
+
+  const handleToggleAdicional = (idAdicional: number, grupo: any) => {
+    console.log("--- GRUPO COMPLETO RECEBIDO ---", grupo);
+    
+    const maxPermitido = Number(
+      grupo.max_selecoes || 
+      grupo.maximo || 
+      grupo.limite || 
+      grupo.max || 
+      grupo.limite_maximo || 
+      grupo.quantidade_maxima || 
+      0
+    );
+
+    console.log("Max permitido convertido:", maxPermitido);
+
     setAdicionaisSelecionados((prev) => {
       const novo = { ...prev };
-      if (novo[idAdicional]) {
+      const jaSelecionado = !!novo[idAdicional];
+
+      if (jaSelecionado) {
         delete novo[idAdicional];
       } else {
+        if (maxPermitido > 0) {
+          const totalAtualNoGrupo = contarSelecionadosNoGrupo(grupo, prev);
+          console.log("Total atual no grupo:", totalAtualNoGrupo);
+          
+          if (totalAtualNoGrupo >= maxPermitido) {
+            Alert.alert("Limite atingido", `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`);
+            return prev;
+          }
+        }
         novo[idAdicional] = 1;
       }
       return novo;
     });
   };
 
-  const handleMudarQtdAdicional = (idAdicional: number, delta: number) => {
+  const handleMudarQtdAdicional = (idAdicional: number, delta: number, grupo: any) => {
+    const maxPermitido = Number(
+      grupo.max_selecoes || 
+      grupo.maximo || 
+      grupo.limite || 
+      grupo.max || 
+      grupo.limite_maximo || 
+      grupo.quantidade_maxima || 
+      0
+    );
+
     setAdicionaisSelecionados((prev) => {
       const atual = prev[idAdicional] || 1;
       const novaQtd = atual + delta;
       const novo = { ...prev };
+
       if (novaQtd <= 0) {
         delete novo[idAdicional];
       } else {
+        if (delta > 0 && maxPermitido > 0) {
+          const totalAtualNoGrupo = contarSelecionadosNoGrupo(grupo, prev);
+          if (totalAtualNoGrupo >= maxPermitido) {
+            Alert.alert("Limite atingido", `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`);
+            return prev;
+          }
+        }
         novo[idAdicional] = novaQtd;
       }
       return novo;
@@ -84,6 +142,10 @@ export default function ProdutoModal({
   const precoBase = Number(produto.preco_base_produto || produto.preco_produto || produto.preco || 0);
   const valorTotal = (precoBase + totalAdicionais) * qtdPrincipal;
 
+  const imagemUri = !produto.foto_produto
+    ? `${IMAGEM}/produto/sem-imagem.png`
+    : `${IMAGEM}/${produto.foto_produto}`;
+
   return (
     <Modal
       visible={visible}
@@ -100,7 +162,7 @@ export default function ProdutoModal({
           <ScrollView showsVerticalScrollIndicator={false}>
             {/* Foto do Produto */}
             <Image
-              source={typeof produto.imagem === 'number' ? produto.imagem : { uri: produto.foto_produto || produto.foto_uri || produto.imagem }}
+              source={{ uri: imagemUri }}
               style={produtoModalStyle.imagemProduto}
             />
 
@@ -126,7 +188,7 @@ export default function ProdutoModal({
                 </Pressable>
               </View>
               <Text style={produtoModalStyle.precoBase}>
-                R$ {precoBase.toFixed(2).replace(".", ",")}
+                R\$ {precoBase.toFixed(2).replace(".", ",")}
               </Text>
             </View>
 
@@ -141,11 +203,20 @@ export default function ProdutoModal({
                 {gruposAdicionais.map((grupo: any, indexGrupo: number) => {
                   const nomeGrupo = grupo.nome_grupo_adicional || grupo.nome || grupo.titulo;
                   const itensAdicionais = grupo.adicionais || grupo.itens || [];
+                  const maxPermitido = 
+                    grupo.max_selecoes || 
+                    grupo.maximo || 
+                    grupo.limite || 
+                    grupo.max || 
+                    grupo.limite_maximo || 
+                    grupo.quantidade_maxima;
 
                   return (
                     <View key={grupo.id_grupo_adicional || grupo.id || indexGrupo}>
                       {nomeGrupo && (
-                        <Text style={produtoModalStyle.tituloAdicionais}>{nomeGrupo}</Text>
+                        <Text style={produtoModalStyle.tituloAdicionais}>
+                          {nomeGrupo} {maxPermitido ? `(Máx: ${maxPermitido})` : ""}
+                        </Text>
                       )}
                       
                       {itensAdicionais.map((adicional: any, indexAd: number) => {
@@ -159,7 +230,7 @@ export default function ProdutoModal({
                           <View style={produtoModalStyle.itemAdicional} key={adId}>
                             <Pressable
                               style={produtoModalStyle.checkboxArea}
-                              onPress={() => handleToggleAdicional(adId)}
+                              onPress={() => handleToggleAdicional(adId, grupo)}
                             >
                               <View
                                 style={[
@@ -172,7 +243,7 @@ export default function ProdutoModal({
                                   {adNome}
                                 </Text>
                                 <Text style={produtoModalStyle.precoAdicional}>
-                                  + R$ {adPreco.toFixed(2).replace(".", ",")}
+                                  + R\$ {adPreco.toFixed(2).replace(".", ",")}
                                 </Text>
                               </View>
                             </Pressable>
@@ -180,14 +251,14 @@ export default function ProdutoModal({
                             {isSelected && (
                               <View style={produtoModalStyle.controleQtdPequeno}>
                                 <Pressable
-                                  onPress={() => handleMudarQtdAdicional(adId, -1)}
+                                  onPress={() => handleMudarQtdAdicional(adId, -1, grupo)}
                                   style={produtoModalStyle.btnMenosPequeno}
                                 >
                                   <Text style={produtoModalStyle.txtBtnMenosPequeno}>−</Text>
                                 </Pressable>
                                 <Text style={produtoModalStyle.txtQtdPequeno}>{qtdAd}</Text>
                                 <Pressable
-                                  onPress={() => handleMudarQtdAdicional(adId, 1)}
+                                  onPress={() => handleMudarQtdAdicional(adId, 1, grupo)}
                                   style={produtoModalStyle.btnMaisPequeno}
                                 >
                                   <Text style={produtoModalStyle.txtBtnMaisPequeno}>+</Text>
@@ -219,7 +290,7 @@ export default function ProdutoModal({
             {/* Rodapé / Botão */}
             <View style={produtoModalStyle.rodape}>
               <Text style={produtoModalStyle.valorTotal}>
-                R$ {valorTotal.toFixed(2).replace(".", ",")}
+                R\$ {valorTotal.toFixed(2).replace(".", ",")}
               </Text>
               <Pressable 
                 style={produtoModalStyle.btnAdicionar} 
