@@ -63,7 +63,7 @@ export default function HomeScreen() {
           console.warn("A estrutura de produtos da API veio diferente do esperado:", jsonProdutos);
         }
 
-        // 2. Buscar Categorias
+        // 2. Buscar Categorias (Corrigido para filtrar estritamente por ativa_categoria === "ATIVO")
         const respCategorias = await fetch(`${API}/categorias`);
         const textCategorias = await respCategorias.text();
 
@@ -77,7 +77,7 @@ export default function HomeScreen() {
 
         if (jsonCategorias && jsonCategorias.success && Array.isArray(jsonCategorias.data)) {
           const categoriasAtivas = jsonCategorias.data
-            .filter((cat: any) => cat.ativa_categoria === "ATIVO" || cat.status_categoria === "ATIVO")
+            .filter((cat: any) => cat.ativa_categoria === "ATIVO")
             .sort((a: any, b: any) => (a.ordem_categoria || 0) - (b.ordem_categoria || 0));
 
           setCategorias(categoriasAtivas);
@@ -102,7 +102,6 @@ export default function HomeScreen() {
   };
 
   const abrirModal = (produto: any) => {
-    // Passa o produto completo da API (com grupos, adicionais e preços) diretamente
     setProdutoSelecionado(produto);
     setModalVisivel(true);
   };
@@ -255,7 +254,6 @@ export default function HomeScreen() {
         </SafeAreaView>
       </ImageBackground>
 
-      {/* Proteção para garantir que o componente só monta quando visível e carregado */}
       {modalVisivel && produtoSelecionado && (
         <ProdutoModal
           visible={modalVisivel}
