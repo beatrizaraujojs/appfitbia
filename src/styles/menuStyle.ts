@@ -148,6 +148,7 @@ const menuStyle = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 20,
   },
   infoProduto: {
     flex: 1,

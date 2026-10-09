@@ -23,27 +23,34 @@ export default function ProdutoModal({
   onClose: () => void;
   produto: any;
 }) {
-  if (!produto) return null;
+  if (!visible || !produto) return null;
 
   const [qtdPrincipal, setQtdPrincipal] = useState(1);
   const [observacao, setObservacao] = useState("");
-  const [adicionaisSelecionados, setAdicionaisSelecionados] = useState<{ [key: number]: number }>({});
+  const [adicionaisSelecionados, setAdicionaisSelecionados] = useState<{
+    [key: number]: number;
+  }>({});
 
   useEffect(() => {
-    setQtdPrincipal(1);
-    setObservacao("");
-    setAdicionaisSelecionados({});
-  }, [produto]);
+    if (visible) {
+      setQtdPrincipal(1);
+      setObservacao("");
+      setAdicionaisSelecionados({});
+    }
+  }, [visible, produto]);
 
   // Captura os grupos vindos do Laravel (snake_case)
-  const gruposAdicionais = 
-    produto.grupos_adicionais || 
-    produto.gruposAdicionais || 
-    produto.grupos || 
+  const gruposAdicionais =
+    produto.grupos_adicionais ||
+    produto.gruposAdicionais ||
+    produto.grupos ||
     [];
 
   // Conta quantos itens já foram selecionados num determinado grupo
-  const contarSelecionadosNoGrupo = (grupo: any, adicionaisAtuais: { [key: number]: number }) => {
+  const contarSelecionadosNoGrupo = (
+    grupo: any,
+    adicionaisAtuais: { [key: number]: number },
+  ) => {
     const itensAdicionais = grupo.adicionais || grupo.itens || [];
     let totalGrupo = 0;
     itensAdicionais.forEach((adicional: any) => {
@@ -56,19 +63,16 @@ export default function ProdutoModal({
   };
 
   const handleToggleAdicional = (idAdicional: number, grupo: any) => {
-    console.log("--- GRUPO COMPLETO RECEBIDO ---", grupo);
-    
     const maxPermitido = Number(
-      grupo.max_selecoes || 
-      grupo.maximo || 
-      grupo.limite || 
-      grupo.max || 
-      grupo.limite_maximo || 
-      grupo.quantidade_maxima || 
-      0
+      grupo.max_selecoes ||
+        grupo.maximo ||
+        grupo.limite ||
+        grupo.max ||
+        grupo.limite_maximo ||
+        grupo.quantidade_maxima ||
+        grupo.max_itens ||
+        3,
     );
-
-    console.log("Max permitido convertido:", maxPermitido);
 
     setAdicionaisSelecionados((prev) => {
       const novo = { ...prev };
@@ -79,10 +83,12 @@ export default function ProdutoModal({
       } else {
         if (maxPermitido > 0) {
           const totalAtualNoGrupo = contarSelecionadosNoGrupo(grupo, prev);
-          console.log("Total atual no grupo:", totalAtualNoGrupo);
-          
+
           if (totalAtualNoGrupo >= maxPermitido) {
-            Alert.alert("Limite atingido", `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`);
+            Alert.alert(
+              "Limite atingido",
+              `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+            );
             return prev;
           }
         }
@@ -92,35 +98,47 @@ export default function ProdutoModal({
     });
   };
 
-  const handleMudarQtdAdicional = (idAdicional: number, delta: number, grupo: any) => {
+  const handleMudarQtdAdicional = (
+    idAdicional: number,
+    delta: number,
+    grupo: any,
+  ) => {
     const maxPermitido = Number(
-      grupo.max_selecoes || 
-      grupo.maximo || 
-      grupo.limite || 
-      grupo.max || 
-      grupo.limite_maximo || 
-      grupo.quantidade_maxima || 
-      0
+      grupo.max_selecoes ||
+        grupo.maximo ||
+        grupo.limite ||
+        grupo.max ||
+        grupo.limite_maximo ||
+        grupo.quantidade_maxima ||
+        grupo.max_itens ||
+        0,
     );
 
     setAdicionaisSelecionados((prev) => {
-      const atual = prev[idAdicional] || 1;
-      const novaQtd = atual + delta;
-      const novo = { ...prev };
+      const atualItem = prev[idAdicional] || 0;
+      const novaQtdItem = atualItem + delta;
 
-      if (novaQtd <= 0) {
+      if (novaQtdItem <= 0) {
+        const novo = { ...prev };
         delete novo[idAdicional];
-      } else {
-        if (delta > 0 && maxPermitido > 0) {
-          const totalAtualNoGrupo = contarSelecionadosNoGrupo(grupo, prev);
-          if (totalAtualNoGrupo >= maxPermitido) {
-            Alert.alert("Limite atingido", `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`);
-            return prev;
-          }
-        }
-        novo[idAdicional] = novaQtd;
+        return novo;
       }
-      return novo;
+
+      if (delta > 0 && maxPermitido > 0) {
+        const totalAtualNoGrupo = contarSelecionadosNoGrupo(grupo, prev);
+        if (totalAtualNoGrupo >= maxPermitido) {
+          Alert.alert(
+            "Limite atingido",
+            `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+          );
+          return prev;
+        }
+      }
+
+      return {
+        ...prev,
+        [idAdicional]: novaQtdItem,
+      };
     });
   };
 
@@ -132,14 +150,18 @@ export default function ProdutoModal({
       itensAdicionais.forEach((adicional: any) => {
         const id = adicional.id_adicional || adicional.id;
         if (adicionaisSelecionados[id]) {
-          const preco = Number(adicional.preco_adicional || adicional.preco || 0);
+          const preco = Number(
+            adicional.preco_adicional || adicional.preco || 0,
+          );
           totalAdicionais += preco * adicionaisSelecionados[id];
         }
       });
     });
   }
 
-  const precoBase = Number(produto.preco_base_produto || produto.preco_produto || produto.preco || 0);
+  const precoBase = Number(
+    produto.preco_base_produto || produto.preco_produto || produto.preco || 0,
+  );
   const valorTotal = (precoBase + totalAdicionais) * qtdPrincipal;
 
   const imagemUri = !produto.foto_produto
@@ -170,7 +192,7 @@ export default function ProdutoModal({
             <Text style={produtoModalStyle.nomeProduto}>
               {produto.nome_produto || produto.nome}
             </Text>
-            
+
             <View style={produtoModalStyle.linhaQtdPreco}>
               <View style={produtoModalStyle.controleQtd}>
                 <Pressable
@@ -188,7 +210,7 @@ export default function ProdutoModal({
                 </Pressable>
               </View>
               <Text style={produtoModalStyle.precoBase}>
-                R\$ {precoBase.toFixed(2).replace(".", ",")}
+                R$ {precoBase.toFixed(2).replace(".", ",")}
               </Text>
             </View>
 
@@ -201,73 +223,150 @@ export default function ProdutoModal({
             {gruposAdicionais.length > 0 && (
               <>
                 {gruposAdicionais.map((grupo: any, indexGrupo: number) => {
-                  const nomeGrupo = grupo.nome_grupo_adicional || grupo.nome || grupo.titulo;
+                  const nomeGrupo =
+                    grupo.nome_grupo_adicional || grupo.nome || grupo.titulo;
                   const itensAdicionais = grupo.adicionais || grupo.itens || [];
-                  const maxPermitido = 
-                    grupo.max_selecoes || 
-                    grupo.maximo || 
-                    grupo.limite || 
-                    grupo.max || 
-                    grupo.limite_maximo || 
-                    grupo.quantidade_maxima;
+                  const maxPermitido = Number(
+                    grupo.max_selecoes ||
+                      grupo.maximo ||
+                      grupo.limite ||
+                      grupo.max ||
+                      grupo.limite_maximo ||
+                      grupo.quantidade_maxima ||
+                      grupo.max_itens ||
+                      0,
+                  );
+
+                  const totalNoGrupo = contarSelecionadosNoGrupo(
+                    grupo,
+                    adicionaisSelecionados,
+                  );
+                  const limiteAtingido =
+                    maxPermitido > 0 && totalNoGrupo >= maxPermitido;
 
                   return (
-                    <View key={grupo.id_grupo_adicional || grupo.id || indexGrupo}>
+                    <View
+                      key={grupo.id_grupo_adicional || grupo.id || indexGrupo}
+                    >
                       {nomeGrupo && (
-                        <Text style={produtoModalStyle.tituloAdicionais}>
-                          {nomeGrupo} {maxPermitido ? `(Máx: ${maxPermitido})` : ""}
-                        </Text>
-                      )}
-                      
-                      {itensAdicionais.map((adicional: any, indexAd: number) => {
-                        const adId = adicional.id_adicional || adicional.id || indexAd;
-                        const adNome = adicional.nome_adicional || adicional.nome;
-                        const adPreco = Number(adicional.preco_adicional || adicional.preco || 0);
-                        const isSelected = !!adicionaisSelecionados[adId];
-                        const qtdAd = adicionaisSelecionados[adId] || 1;
-
-                        return (
-                          <View style={produtoModalStyle.itemAdicional} key={adId}>
-                            <Pressable
-                              style={produtoModalStyle.checkboxArea}
-                              onPress={() => handleToggleAdicional(adId, grupo)}
+                        <View
+                          style={{
+                            flexDirection: "row",
+                            justifyContent: "space-between",
+                            alignItems: "center",
+                            marginTop: 12,
+                            marginBottom: 8,
+                          }}
+                        >
+                          <Text style={produtoModalStyle.tituloAdicionais}>
+                            {nomeGrupo}{" "}
+                            {maxPermitido ? `(Máx: ${maxPermitido})` : ""}
+                          </Text>
+                          {limiteAtingido && (
+                            <Text
+                              style={{
+                                color: "#d9534f",
+                                fontSize: 12,
+                                fontWeight: "bold",
+                              }}
                             >
-                              <View
-                                style={[
-                                  produtoModalStyle.checkbox,
-                                  isSelected && produtoModalStyle.checkboxChecado,
-                                ]}
-                              />
-                              <View>
-                                <Text style={produtoModalStyle.nomeAdicional}>
-                                  {adNome}
-                                </Text>
-                                <Text style={produtoModalStyle.precoAdicional}>
-                                  + R\$ {adPreco.toFixed(2).replace(".", ",")}
-                                </Text>
-                              </View>
-                            </Pressable>
+                              Limite máximo atingido!
+                            </Text>
+                          )}
+                        </View>
+                      )}
 
-                            {isSelected && (
-                              <View style={produtoModalStyle.controleQtdPequeno}>
+                      {itensAdicionais.map(
+                        (adicional: any, indexAd: number) => {
+                          const adId =
+                            adicional.id_adicional || adicional.id || indexAd;
+                          const adNome =
+                            adicional.nome_adicional || adicional.nome;
+                          const adPreco = Number(
+                            adicional.preco_adicional || adicional.preco || 0,
+                          );
+                          const qtdAd = adicionaisSelecionados[adId] || 0;
+
+                          return (
+                            <View
+                              style={produtoModalStyle.itemAdicional}
+                              key={adId}
+                            >
+                              <Pressable
+                                style={produtoModalStyle.checkboxArea}
+                                onPress={() =>
+                                  handleToggleAdicional(adId, grupo)
+                                }
+                              >
+                                <View>
+                                  <Text style={produtoModalStyle.nomeAdicional}>
+                                    {adNome}
+                                  </Text>
+                                  <Text
+                                    style={produtoModalStyle.precoAdicional}
+                                  >
+                                    + R$ {adPreco.toFixed(2).replace(".", ",")}
+                                  </Text>
+                                </View>
+                              </Pressable>
+
+                              <View
+                                style={produtoModalStyle.controleQtdPequeno}
+                              >
                                 <Pressable
-                                  onPress={() => handleMudarQtdAdicional(adId, -1, grupo)}
+                                  onPress={() =>
+                                    handleMudarQtdAdicional(adId, -1, grupo)
+                                  }
                                   style={produtoModalStyle.btnMenosPequeno}
                                 >
-                                  <Text style={produtoModalStyle.txtBtnMenosPequeno}>−</Text>
+                                  <Text
+                                    style={produtoModalStyle.txtBtnMenosPequeno}
+                                  >
+                                    −
+                                  </Text>
                                 </Pressable>
-                                <Text style={produtoModalStyle.txtQtdPequeno}>{qtdAd}</Text>
+                                <Text style={produtoModalStyle.txtQtdPequeno}>
+                                  {qtdAd}
+                                </Text>
                                 <Pressable
-                                  onPress={() => handleMudarQtdAdicional(adId, 1, grupo)}
-                                  style={produtoModalStyle.btnMaisPequeno}
+                                  onPress={() => {
+                                    const totalNoGrupoAtual =
+                                      contarSelecionadosNoGrupo(
+                                        grupo,
+                                        adicionaisSelecionados,
+                                      );
+                                    if (
+                                      maxPermitido > 0 &&
+                                      totalNoGrupoAtual >= maxPermitido
+                                    ) {
+                                      Alert.alert(
+                                        "Limite atingido",
+                                        `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+                                      );
+                                      return;
+                                    }
+                                    handleMudarQtdAdicional(adId, 1, grupo);
+                                  }}
+                                  style={[
+                                    produtoModalStyle.btnMaisPequeno,
+                                    maxPermitido > 0 &&
+                                      contarSelecionadosNoGrupo(
+                                        grupo,
+                                        adicionaisSelecionados,
+                                      ) >= maxPermitido && { opacity: 0.4 },
+                                  ]}
                                 >
-                                  <Text style={produtoModalStyle.txtBtnMaisPequeno}>+</Text>
+                                  <Text
+                                    style={produtoModalStyle.txtBtnMaisPequeno}
+                                  >
+                                    +
+                                  </Text>
                                 </Pressable>
                               </View>
-                            )}
-                          </View>
-                        );
-                      })}
+                            </View>
+                          );
+                        },
+                      )}
                     </View>
                   );
                 })}
@@ -290,10 +389,10 @@ export default function ProdutoModal({
             {/* Rodapé / Botão */}
             <View style={produtoModalStyle.rodape}>
               <Text style={produtoModalStyle.valorTotal}>
-                R\$ {valorTotal.toFixed(2).replace(".", ",")}
+                R$ {valorTotal.toFixed(2).replace(".", ",")}
               </Text>
-              <Pressable 
-                style={produtoModalStyle.btnAdicionar} 
+              <Pressable
+                style={produtoModalStyle.btnAdicionar}
                 onPress={() => {
                   onClose();
                 }}

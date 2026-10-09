@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Image,
   ImageBackground,
@@ -23,11 +23,12 @@ const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function MenuScreen() {
   const params = useLocalSearchParams();
+  const scrollViewRef = useRef<ScrollView>(null);
   const [busca, setBusca] = useState("");
-  
-  const [categoriaAtiva, setCategoriaAtiva] = useState<number | string | "Todos">(
-    params.id_categoria ? Number(params.id_categoria) : "Todos"
-  );
+
+  const [categoriaAtiva, setCategoriaAtiva] = useState<
+    number | string | "Todos"
+  >(params.id_categoria ? Number(params.id_categoria) : "Todos");
 
   const [categorias, setCategorias] = useState<any[]>([]);
   const [produtosCardapio, setProdutosCardapio] = useState<any[]>([]);
@@ -35,9 +36,18 @@ export default function MenuScreen() {
 
   // Pratos da semana fixos
   const pratosSemana = [
-    { id: 1, imagem: require("@/assets/images/fotosfitbia/salmao_batatas_assadas_brocolis.png") },
-    { id: 2, imagem: require("@/assets/images/fotosfitbia/salada_fitbia_power.png") },
-    { id: 3, imagem: require("@/assets/images/fotosfitbia/panqueca_carne_moida_arroz_legumes.png") },
+    {
+      id: 1,
+      imagem: require("@/assets/images/fotosfitbia/salmao_batatas_assadas_brocolis.png"),
+    },
+    {
+      id: 2,
+      imagem: require("@/assets/images/fotosfitbia/salada_fitbia_power.png"),
+    },
+    {
+      id: 3,
+      imagem: require("@/assets/images/fotosfitbia/panqueca_carne_moida_arroz_legumes.png"),
+    },
     { id: 4, imagem: require("@/assets/images/fotosfitbia/quinta_feira.png") },
     { id: 5, imagem: require("@/assets/images/fotosfitbia/quarta_feira.png") },
     { id: 6, imagem: require("@/assets/images/fotosfitbia/segunda_feira.png") },
@@ -45,7 +55,9 @@ export default function MenuScreen() {
   ];
 
   const [modalVisivel, setModalVisivel] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(null);
+  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(
+    null,
+  );
 
   // 1. Carregar Categorias ao abrir a tela
   useEffect(() => {
@@ -71,10 +83,8 @@ export default function MenuScreen() {
   useEffect(() => {
     async function carregarProdutos() {
       try {
-        const url =
-          categoriaAtiva === "Todos"
-            ? `${API}/produtos`
-            : `${API}/produtos?categoria_id=${categoriaAtiva}`;
+        // Se for "Todos", buscamos todos os produtos. Se tiver ID, filtramos pela URL ou localmente
+        const url = `${API}/produtos`;
 
         const resp = await fetch(url);
         const json = await resp.json();
@@ -92,6 +102,13 @@ export default function MenuScreen() {
         }));
 
         setProdutosCardapio(produtosMapeados);
+
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({
+            y: 320,
+            animated: true,
+          });
+        }, 200);
       } catch (erro) {
         console.error("Erro ao carregar produtos:", erro);
       }
@@ -103,34 +120,124 @@ export default function MenuScreen() {
   const toggleFavorito = (idItem: number) => {
     setProdutosCardapio((prev) =>
       prev.map((item) =>
-        (item.id_produto === idItem || item.id === idItem)
+        item.id_produto === idItem || item.id === idItem
           ? { ...item, favorito: !item.favorito }
-          : item
-      )
+          : item,
+      ),
     );
   };
 
   const abrirModal = (produto: any) => {
+    setProdutoSelecionado(produto);
+    setModalVisivel(true);
+  };
+
+  // Filtragem local por texto de busca e por categoria selecionada
+  const produtosFiltrados = produtosCardapio.filter((produto) => {
+    const nomeProd = produto.nome_produto || produto.nome || "";
+    const matchBusca = nomeProd.toLowerCase().includes(busca.toLowerCase());
+
+    if (categoriaAtiva === "Todos") {
+      return matchBusca;
+    }
+
+    const prodCatId =
+      produto.id_categoria ||
+      produto.categoria_id ||
+      produto.pivot?.id_categoria ||
+      produto.categoria?.id_categoria;
+
+    const matchCategoria = String(prodCatId) === String(categoriaAtiva);
+    return matchBusca && matchCategoria;
+  });
+
+  // Agrupa os produtos por categoria para a aba "Todos" de forma segura
+  const produtosPorCategoria = categorias
+    .map((cat) => {
+      const catId = cat.id_categoria || cat.id;
+      const catNome = cat.nome_categoria || cat.nome;
+
+      const itensDaCat = produtosFiltrados.filter((p) => {
+        const pCatId =
+          p.id_categoria ||
+          p.categoria_id ||
+          p.pivot?.id_categoria ||
+          p.categoria?.id_categoria;
+        return String(pCatId) === String(catId);
+      });
+
+      return {
+        id: catId,
+        nome: catNome,
+        produtos: itensDaCat,
+      };
+    })
+    .filter((grupo) => grupo.produtos.length > 0);
+
+  const nomeCategoriaAtual =
+    categoriaAtiva === "Todos"
+      ? null
+      : categorias.find(
+          (c) => String(c.id_categoria || c.id) === String(categoriaAtiva),
+        )?.nome_categoria || "Categoria";
+
+  // Função auxiliar para renderizar cada card de produto mantendo o padrão exato
+  const renderizarCard = (produto: any) => {
     const prodId = produto.id_produto || produto.id;
     const imagemUri =
       semImagem.includes(prodId) || !produto.foto_produto
         ? `${IMAGEM}/produto/sem-imagem.png`
         : `${IMAGEM}/${produto.foto_produto}`;
 
-    setProdutoSelecionado({
-      nome: produto.nome_produto || produto.nome,
-      preco: Number(produto.preco_base_produto || produto.preco || 0),
-      descricao: produto.descricao_produto || produto.descricao,
-      imagem: { uri: imagemUri },
-    });
-    setModalVisivel(true);
-  };
+    const precoBase = produto.preco_base_produto || produto.preco || 0;
+    const valorFormatado = `R$ ${Number(precoBase)
+      .toFixed(2)
+      .replace(".", ",")}`;
 
-  // Filtragem local por texto de busca
-  const produtosFiltrados = produtosCardapio.filter((produto) => {
-    const nomeProd = produto.nome_produto || produto.nome || "";
-    return nomeProd.toLowerCase().includes(busca.toLowerCase());
-  });
+    return (
+      <View style={menuStyle.cardHorizontal} key={prodId}>
+        <View style={menuStyle.infoProduto}>
+          <Text style={menuStyle.nomeProduto} numberOfLines={1}>
+            {produto.nome_produto || produto.nome}
+          </Text>
+          <Text style={menuStyle.descProduto} numberOfLines={2}>
+            {produto.descricao_produto || produto.descricao}
+          </Text>
+          <View style={menuStyle.linhaPreco}>
+            <Text style={menuStyle.precoProduto}>{valorFormatado}</Text>
+            <Pressable
+              style={menuStyle.btnFavorito}
+              onPress={() => toggleFavorito(prodId)}
+            >
+              <Image
+                source={
+                  produto.favorito
+                    ? require("@/assets/images/fitbia/coracaovermelho.png")
+                    : require("@/assets/images/fitbia/coracao.png")
+                }
+                style={menuStyle.iconeFavorito}
+              />
+            </Pressable>
+          </View>
+        </View>
+        <View style={menuStyle.boxImagemProduto}>
+          <Image
+            source={{ uri: imagemUri }}
+            style={menuStyle.imgProdutoHorizontal}
+            onError={() => {
+              setSemImagem((imgs) => [...imgs, prodId]);
+            }}
+          />
+          <Pressable
+            style={menuStyle.btnAddHorizontal}
+            onPress={() => abrirModal(produto)}
+          >
+            <Text style={menuStyle.txtBtnAdd}>+</Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={globalStyle.container}>
@@ -141,6 +248,7 @@ export default function MenuScreen() {
       >
         <SafeAreaView style={globalStyle.areaConteudo}>
           <ScrollView
+            ref={scrollViewRef}
             style={globalStyle.scrollConteudo}
             showsVerticalScrollIndicator={false}
           >
@@ -254,71 +362,54 @@ export default function MenuScreen() {
 
               <View style={menuStyle.divisor} />
 
-              {/* Lista Vertical de Produtos */}
+              {/* Lista Vertical de Produtos com Título da Categoria */}
               <View style={menuStyle.listaProdutos}>
                 {produtosFiltrados.length === 0 ? (
-                  <Text style={{ textAlign: "center", color: "#666", marginTop: 20 }}>
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      color: "#666",
+                      marginTop: 20,
+                    }}
+                  >
                     Nenhum produto encontrado nesta categoria.
                   </Text>
+                ) : categoriaAtiva === "Todos" ? (
+                  produtosPorCategoria.map((grupo) => (
+                    <View key={grupo.id} style={{ marginBottom: 20 }}>
+                      <Text
+                        style={{
+                          fontSize: 20,
+                          fontWeight: "bold",
+                          color: "#2C3E2D",
+                          marginBottom: 12,
+                          marginTop: 10,
+                        }}
+                      >
+                        {grupo.nome}
+                      </Text>
+                      {grupo.produtos.map((produto) => renderizarCard(produto))}
+                    </View>
+                  ))
                 ) : (
-                  produtosFiltrados.map((produto) => {
-                    const prodId = produto.id_produto || produto.id;
-                    const imagemUri =
-                      semImagem.includes(prodId) || !produto.foto_produto
-                        ? `${IMAGEM}/produto/sem-imagem.png`
-                        : `${IMAGEM}/${produto.foto_produto}`;
-
-                    const precoBase = produto.preco_base_produto || produto.preco || 0;
-                    const valorFormatado = `R$ ${Number(precoBase)
-                      .toFixed(2)
-                      .replace(".", ",")}`;
-
-                    return (
-                      <View style={menuStyle.cardHorizontal} key={prodId}>
-                        <View style={menuStyle.infoProduto}>
-                          <Text style={menuStyle.nomeProduto} numberOfLines={1}>
-                            {produto.nome_produto || produto.nome}
-                          </Text>
-                          <Text style={menuStyle.descProduto} numberOfLines={2}>
-                            {produto.descricao_produto || produto.descricao}
-                          </Text>
-                          <View style={menuStyle.linhaPreco}>
-                            <Text style={menuStyle.precoProduto}>
-                              {valorFormatado}
-                            </Text>
-                            <Pressable
-                              style={menuStyle.btnFavorito}
-                              onPress={() => toggleFavorito(prodId)}
-                            >
-                              <Image
-                                source={
-                                  produto.favorito
-                                    ? require("@/assets/images/fitbia/coracaovermelho.png")
-                                    : require("@/assets/images/fitbia/coracao.png")
-                                }
-                                style={menuStyle.iconeFavorito}
-                              />
-                            </Pressable>
-                          </View>
-                        </View>
-                        <View style={menuStyle.boxImagemProduto}>
-                          <Image
-                            source={{ uri: imagemUri }}
-                            style={menuStyle.imgProdutoHorizontal}
-                            onError={() => {
-                              setSemImagem((imgs) => [...imgs, prodId]);
-                            }}
-                          />
-                          <Pressable
-                            style={menuStyle.btnAddHorizontal}
-                            onPress={() => abrirModal(produto)}
-                          >
-                            <Text style={menuStyle.txtBtnAdd}>+</Text>
-                          </Pressable>
-                        </View>
-                      </View>
-                    );
-                  })
+                  <View style={{ marginBottom: 20 }}>
+                    {nomeCategoriaAtual && (
+                      <Text
+                        style={{
+                          fontSize: 20,
+                          fontWeight: "bold",
+                          color: "#2C3E2D",
+                          marginBottom: 12,
+                          marginTop: 10,
+                        }}
+                      >
+                        {nomeCategoriaAtual}
+                      </Text>
+                    )}
+                    {produtosFiltrados.map((produto) =>
+                      renderizarCard(produto),
+                    )}
+                  </View>
                 )}
               </View>
             </View>
@@ -328,11 +419,13 @@ export default function MenuScreen() {
         </SafeAreaView>
       </ImageBackground>
 
-      <ProdutoModal
-        visible={modalVisivel}
-        onClose={() => setModalVisivel(false)}
-        produto={produtoSelecionado}
-      />
+      {modalVisivel && produtoSelecionado && (
+        <ProdutoModal
+          visible={modalVisivel}
+          onClose={() => setModalVisivel(false)}
+          produto={produtoSelecionado}
+        />
+      )}
     </View>
   );
 }
