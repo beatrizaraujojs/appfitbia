@@ -46,7 +46,7 @@ export default function ProdutoModal({
     produto.grupos ||
     [];
 
-  // Conta quantos itens já foram selecionados num determinado grupo
+  // Conta quantos itens no TOTAL já foram selecionados em todo o grupo
   const contarSelecionadosNoGrupo = (
     grupo: any,
     adicionaisAtuais: { [key: number]: number },
@@ -64,14 +64,15 @@ export default function ProdutoModal({
 
   const handleToggleAdicional = (idAdicional: number, grupo: any) => {
     const maxPermitido = Number(
-      grupo.max_selecoes ||
+      grupo.qtd_max_grupo ||
+        grupo.max_selecoes ||
         grupo.maximo ||
         grupo.limite ||
         grupo.max ||
         grupo.limite_maximo ||
         grupo.quantidade_maxima ||
         grupo.max_itens ||
-        3,
+        0,
     );
 
     setAdicionaisSelecionados((prev) => {
@@ -87,7 +88,7 @@ export default function ProdutoModal({
           if (totalAtualNoGrupo >= maxPermitido) {
             Alert.alert(
               "Limite atingido",
-              `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+              `Pode selecionar no máximo ${maxPermitido} item(ns) no total deste grupo.`,
             );
             return prev;
           }
@@ -104,7 +105,8 @@ export default function ProdutoModal({
     grupo: any,
   ) => {
     const maxPermitido = Number(
-      grupo.max_selecoes ||
+      grupo.qtd_max_grupo ||
+        grupo.max_selecoes ||
         grupo.maximo ||
         grupo.limite ||
         grupo.max ||
@@ -118,10 +120,16 @@ export default function ProdutoModal({
       const atualItem = prev[idAdicional] || 0;
       const novaQtdItem = atualItem + delta;
 
-      if (novaQtdItem <= 0) {
-        const novo = { ...prev };
-        delete novo[idAdicional];
-        return novo;
+      if (delta < 0) {
+        if (novaQtdItem <= 0) {
+          const novo = { ...prev };
+          delete novo[idAdicional];
+          return novo;
+        }
+        return {
+          ...prev,
+          [idAdicional]: novaQtdItem,
+        };
       }
 
       if (delta > 0 && maxPermitido > 0) {
@@ -129,7 +137,7 @@ export default function ProdutoModal({
         if (totalAtualNoGrupo >= maxPermitido) {
           Alert.alert(
             "Limite atingido",
-            `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+            `Pode selecionar no máximo ${maxPermitido} item(ns) no total deste grupo.`,
           );
           return prev;
         }
@@ -227,7 +235,8 @@ export default function ProdutoModal({
                     grupo.nome_grupo_adicional || grupo.nome || grupo.titulo;
                   const itensAdicionais = grupo.adicionais || grupo.itens || [];
                   const maxPermitido = Number(
-                    grupo.max_selecoes ||
+                    grupo.qtd_max_grupo ||
+                      grupo.max_selecoes ||
                       grupo.maximo ||
                       grupo.limite ||
                       grupo.max ||
@@ -341,7 +350,7 @@ export default function ProdutoModal({
                                     ) {
                                       Alert.alert(
                                         "Limite atingido",
-                                        `Pode selecionar no máximo ${maxPermitido} item(ns) neste grupo.`,
+                                        `Pode selecionar no máximo ${maxPermitido} item(ns) no total deste grupo.`,
                                       );
                                       return;
                                     }
@@ -349,11 +358,7 @@ export default function ProdutoModal({
                                   }}
                                   style={[
                                     produtoModalStyle.btnMaisPequeno,
-                                    maxPermitido > 0 &&
-                                      contarSelecionadosNoGrupo(
-                                        grupo,
-                                        adicionaisSelecionados,
-                                      ) >= maxPermitido && { opacity: 0.4 },
+                                    limiteAtingido && { opacity: 0.4 },
                                   ]}
                                 >
                                   <Text
