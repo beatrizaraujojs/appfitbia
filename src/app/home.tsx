@@ -75,7 +75,7 @@ export default function HomeScreen() {
           );
         }
 
-        // 2. Buscar Categorias
+        // 2. Buscar Categorias (Corrigido para filtrar estritamente por ativa_categoria === "ATIVO")
         const respCategorias = await fetch(`${API}/categorias`);
         const textCategorias = await respCategorias.text();
 
@@ -132,7 +132,6 @@ export default function HomeScreen() {
   };
 
   const abrirModal = (produto: any) => {
-    // Passa o produto completo da API (com grupos, adicionais e preços) diretamente
     setProdutoSelecionado(produto);
     setModalVisivel(true);
   };
@@ -295,7 +294,6 @@ export default function HomeScreen() {
         </SafeAreaView>
       </ImageBackground>
 
-      {/* Proteção para garantir que o componente só monta quando visível e carregado */}
       {modalVisivel && produtoSelecionado && (
         <ProdutoModal
           visible={modalVisivel}
