@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Image,
   ImageBackground,
@@ -8,18 +8,117 @@ import {
   Text,
   TextInput,
   View,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import BottomBar from "@/components/BottomBar";
 import editarContaStyle from "@/styles/editarContaStyle";
 import globalStyle from "@/styles/globalStyle";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
+
+
 export default function EditarContaScreen() {
-  const [nome, setNome] = useState("Beatriz Araújo dos Santos");
-  const [email, setEmail] = useState("beatriz20araujo123@gmail.com");
-  const [telefone, setTelefone] = useState("11 981826719");
-  const [cpf, setCpf] = useState("543.275.828-83");
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [cpf, setCpf] = useState("");
+  
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  // 1. Carregar os dados do cliente ao abrir a tela
+  useEffect(() => {
+    async function carregarDadosCliente() {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          Alert.alert("Sessão expirada", "Faça login novamente.");
+          router.replace("/login");
+          return;
+        }
+
+        const resposta = await fetch(`${API}/cliente`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const json = await resposta.json();
+
+        if (resposta.ok && json.success) {
+          setNome(json.data.nome_cliente || "");
+          setEmail(json.data.email_cliente || "");
+          // Mapeado para whatsapp_cliente conforme o seu Model
+          setTelefone(json.data.whatsapp_cliente || "");
+          // Mapeado para cpf_cliente conforme o seu Model
+          setCpf(json.data.cpf_cliente || "");
+        } else {
+          Alert.alert("Erro", "Não foi possível carregar os seus dados.");
+        }
+      } catch (erro) {
+        console.log("Erro ao buscar dados do cliente:", erro);
+      } finally {
+        setCarregando(false);
+      }
+    }
+
+    carregarDadosCliente();
+  }, []);
+
+  // 2. Salvar as alterações feitas pelo utilizador
+  async function handleSalvarAlteracoes() {
+    try {
+      setSalvando(true);
+      const token = await AsyncStorage.getItem("token");
+
+      const resposta = await fetch(`${API}/cliente`, {
+        method: "PUT",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          nome_cliente: nome,
+          email_cliente: email,
+          whatsapp_cliente: telefone, // Enviando com a chave correta da base de dados
+          cpf_cliente: cpf,           // Enviando com a chave correta da base de dados
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        Alert.alert("Erro de validação", json.message || "Verifique os campos preenchidos.");
+        return;
+      }
+
+      Alert.alert("Sucesso", "Dados atualizados com sucesso!");
+      router.back();
+    } catch (erro) {
+      console.log("Erro ao atualizar dados:", erro);
+      Alert.alert("Erro", "Não foi possível ligar ao servidor.");
+    } finally {
+      setSalvando(false);
+    }
+  }
+
+  if (carregando) {
+    return (
+      <View style={[globalStyle.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color="#4B5320" />
+        <Text style={{ marginTop: 10, color: "#fff" }}>A carregar dados...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -42,7 +141,7 @@ export default function EditarContaScreen() {
                 <Text style={editarContaStyle.txtVoltar}>←</Text>
               </Pressable>
 
-              {/* Seção Principal do Topo: Avatar Alinhado com a Logo */}
+              {/* Seção Principal do Topo */}
               <View style={editarContaStyle.topoSection}>
                 <View style={editarContaStyle.avatarSection}>
                   <View style={editarContaStyle.avatarContainer}>
@@ -71,9 +170,9 @@ export default function EditarContaScreen() {
                 </View>
               </View>
 
-              {/* Nome do Usuário */}
+              {/* Nome do Utilizador Dinâmico */}
               <Text style={editarContaStyle.nomeUsuario}>
-                Beatriz Araújo dos Santos
+                {nome || "Utilizador"}
               </Text>
 
               {/* Campo Nome */}
@@ -90,12 +189,6 @@ export default function EditarContaScreen() {
                     onChangeText={setNome}
                   />
                 </View>
-                <Pressable style={editarContaStyle.btnEditarBadge}>
-                  <Image
-                    source={require("@/assets/images/fitbia/editar.png")}
-                    style={editarContaStyle.iconeEditar}
-                  />
-                </Pressable>
               </View>
 
               {/* Campo Email */}
@@ -114,12 +207,6 @@ export default function EditarContaScreen() {
                     autoCapitalize="none"
                   />
                 </View>
-                <Pressable style={editarContaStyle.btnEditarBadge}>
-                  <Image
-                    source={require("@/assets/images/fitbia/editar.png")}
-                    style={editarContaStyle.iconeEditar}
-                  />
-                </Pressable>
               </View>
 
               {/* Campo Telefone */}
@@ -137,12 +224,6 @@ export default function EditarContaScreen() {
                     keyboardType="phone-pad"
                   />
                 </View>
-                <Pressable style={editarContaStyle.btnEditarBadge}>
-                  <Image
-                    source={require("@/assets/images/fitbia/editar.png")}
-                    style={editarContaStyle.iconeEditar}
-                  />
-                </Pressable>
               </View>
 
               {/* Campo CPF */}
@@ -160,18 +241,12 @@ export default function EditarContaScreen() {
                     keyboardType="numeric"
                   />
                 </View>
-                <Pressable style={editarContaStyle.btnEditarBadge}>
-                  <Image
-                    source={require("@/assets/images/fitbia/editar.png")}
-                    style={editarContaStyle.iconeEditar}
-                  />
-                </Pressable>
               </View>
 
               {/* Botão Alterar Senha */}
-             <Pressable
+              <Pressable
                 style={editarContaStyle.btnAlterarSenha}
-                onPress={() => router.push("/editarSenha")} // <--- ADICIONADO AQUI
+                onPress={() => router.push("/editarSenha")}
               >
                 <Text style={editarContaStyle.txtAlterarSenha}>
                   Alterar Senha
@@ -181,10 +256,11 @@ export default function EditarContaScreen() {
               {/* Botão Salvar alterações */}
               <Pressable
                 style={editarContaStyle.btnSalvar}
-                onPress={() => router.back()}
+                onPress={handleSalvarAlteracoes}
+                disabled={salvando}
               >
                 <Text style={editarContaStyle.txtSalvar}>
-                  Salvar alterações
+                  {salvando ? "A guardar..." : "Salvar alterações"}
                 </Text>
               </Pressable>
             </View>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
   Text,
@@ -8,16 +9,62 @@ import {
   Image,
   TextInput,
   ScrollView,
+  Alert,
 } from "react-native";
 
-// Mesmo estilo para todas as paginas
 import globalStyle from "@/styles/globalStyle";
-
-// Estilo para esta pagina especifica
 import loginStyle from "@/styles/loginStyle";
+
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function LoginScreen() {
   const [verSenha, setVerSenha] = useState(false);
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [carregando, setCarregando] = useState(false);
+
+  async function handleLogin() {
+    if (!email || !senha) {
+      Alert.alert("Atenção", "Por favor, preencha o e-mail e a senha.");
+      return;
+    }
+
+    try {
+      setCarregando(true);
+
+      const resposta = await fetch(`${API}/auth/login`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email_cliente: email,
+          senha_cliente: senha,
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok) {
+        Alert.alert("Erro", json.message || "E-mail ou senha inválidos.");
+        return;
+      }
+
+      // Salva o token gerado pelo Sanctum no armazenamento local do dispositivo
+      await AsyncStorage.setItem("token", json.data.token);
+
+      // Redireciona para a home após o sucesso
+      router.replace("/home");
+    } catch (erro) {
+      console.log("Erro ao fazer login: ", erro);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -57,6 +104,8 @@ export default function LoginScreen() {
                 placeholderTextColor="#888888"
                 keyboardType="email-address"
                 autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
                 style={loginStyle.textInput}
               />
             </View>
@@ -75,6 +124,8 @@ export default function LoginScreen() {
                   placeholderTextColor="#888888"
                   style={loginStyle.textInput}
                   secureTextEntry={!verSenha}
+                  value={senha}
+                  onChangeText={setSenha}
                 />
               </View>
 
@@ -111,9 +162,12 @@ export default function LoginScreen() {
                 loginStyle.btnEntrar,
                 pressed && loginStyle.btnEntrarPressed,
               ]}
-              onPress={() => router.replace("/home")}
+              onPress={handleLogin}
+              disabled={carregando}
             >
-              <Text style={loginStyle.textoEntrar}>Entrar</Text>
+              <Text style={loginStyle.textoEntrar}>
+                {carregando ? "A entar..." : "Entrar"}
+              </Text>
             </Pressable>
 
             <View style={loginStyle.criarConta}>

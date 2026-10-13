@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Image,
   ImageBackground,
@@ -7,20 +7,92 @@ import {
   ScrollView,
   Text,
   View,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import BottomBar from "@/components/BottomBar";
 import ModalSair from "@/components/sair";
 import globalStyle from "@/styles/globalStyle";
 import configuracoesStyle from "@/styles/configuracoesStyle";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
+
+
 export default function ConfiguracoesScreen() {
   const [modalSairVisivel, setModalSairVisivel] = useState(false);
+  const [nomeCliente, setNomeCliente] = useState("");
+  const [criadoEm, setCriadoEm] = useState("");
+  const [carregando, setCarregando] = useState(true);
 
-  const handleConfirmarSair = () => {
-    setModalSairVisivel(false);
-    router.replace("/");
+  // 1. Carregar os dados do perfil do cliente autenticado
+  useEffect(() => {
+    async function carregarPerfil() {
+      try {
+        const token = await AsyncStorage.getItem("token");
+        if (!token) {
+          router.replace("/login");
+          return;
+        }
+
+        const resposta = await fetch(`${API}/cliente`, {
+          method: "GET",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        const json = await resposta.json();
+
+        if (resposta.ok && json.success) {
+          setNomeCliente(json.data.nome_cliente || "Utilizador");
+
+          // Extrai o ano de criação da conta caso exista a data na resposta
+          if (json.data.criado_em_cliente || json.data.created_at) {
+            const dataData = json.data.criado_em_cliente || json.data.created_at;
+            const ano = new Date(dataData).getFullYear();
+            setCriadoEm(String(ano));
+          } else {
+            setCriadoEm("2024");
+          }
+        }
+      } catch (erro) {
+        console.log("Erro ao carregar dados em configurações:", erro);
+      } finally {
+        setCarregando(false);
+      }
+    }
+
+    carregarPerfil();
+  }, []);
+
+  // 2. Fazer Logout revogando o token e removendo do AsyncStorage
+  const handleConfirmarSair = async () => {
+    try {
+      setModalSairVisivel(false);
+      const token = await AsyncStorage.getItem("token");
+
+      if (token) {
+        // Chama a rota de logout da API (opcional, para revogar no servidor)
+        await fetch(`${API}/auth/logout`, {
+          method: "POST",
+          headers: {
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    } catch (erro) {
+      console.log("Erro ao efetuar logout na API:", erro);
+    } finally {
+      // Apaga o token do dispositivo e direciona para o login
+      await AsyncStorage.removeItem("token");
+      router.replace("/");
+    }
   };
 
   return (
@@ -64,14 +136,20 @@ export default function ConfiguracoesScreen() {
                 </View>
 
                 <View style={configuracoesStyle.infoPerfil}>
-                  <Text style={configuracoesStyle.nomeUsuario}>
-                    Beatriz Araújo dos Santos Bia
-                  </Text>
-                  <View style={configuracoesStyle.badgeCliente}>
-                    <Text style={configuracoesStyle.txtBadge}>
-                      Cliente desde 2024
-                    </Text>
-                  </View>
+                  {carregando ? (
+                    <ActivityIndicator size="small" color="#4B5320" />
+                  ) : (
+                    <>
+                      <Text style={configuracoesStyle.nomeUsuario}>
+                        {nomeCliente || "Cliente"}
+                      </Text>
+                      <View style={configuracoesStyle.badgeCliente}>
+                        <Text style={configuracoesStyle.txtBadge}>
+                          Cliente desde {criadoEm || "2024"}
+                        </Text>
+                      </View>
+                    </>
+                  )}
                 </View>
               </View>
 
