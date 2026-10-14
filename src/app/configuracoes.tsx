@@ -19,13 +19,13 @@ import configuracoesStyle from "@/styles/configuracoesStyle";
 
 const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
-const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
-
+const IMAGEM_BASE = `${SERVIDOR}/clientes`; // Ajusta o caminho base da pasta de fotos de cliente se necessário
 
 export default function ConfiguracoesScreen() {
   const [modalSairVisivel, setModalSairVisivel] = useState(false);
   const [nomeCliente, setNomeCliente] = useState("");
   const [criadoEm, setCriadoEm] = useState("");
+  const [fotoCliente, setFotoCliente] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
   // 1. Carregar os dados do perfil do cliente autenticado
@@ -50,6 +50,11 @@ export default function ConfiguracoesScreen() {
 
         if (resposta.ok && json.success) {
           setNomeCliente(json.data.nome_cliente || "Utilizador");
+
+          // Define a foto do cliente se vier preenchida na API
+          if (json.data.foto_cliente) {
+            setFotoCliente(json.data.foto_cliente);
+          }
 
           // Extrai o ano de criação da conta caso exista a data na resposta
           if (json.data.criado_em_cliente || json.data.created_at) {
@@ -77,7 +82,6 @@ export default function ConfiguracoesScreen() {
       const token = await AsyncStorage.getItem("token");
 
       if (token) {
-        // Chama a rota de logout da API (opcional, para revogar no servidor)
         await fetch(`${API}/auth/logout`, {
           method: "POST",
           headers: {
@@ -89,11 +93,14 @@ export default function ConfiguracoesScreen() {
     } catch (erro) {
       console.log("Erro ao efetuar logout na API:", erro);
     } finally {
-      // Apaga o token do dispositivo e direciona para o login
       await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("nome_cliente");
       router.replace("/");
     }
   };
+
+  // Define a URI da foto: usa a da API se existir, senão usa null para cair no fallback
+  const uriFotoPerfil = fotoCliente ? `${IMAGEM_BASE}/${fotoCliente}` : null;
 
   return (
     <View style={globalStyle.container}>
@@ -130,7 +137,11 @@ export default function ConfiguracoesScreen() {
               <View style={configuracoesStyle.cardPerfil}>
                 <View style={configuracoesStyle.avatarContainer}>
                   <Image
-                    source={require("@/assets/images/fitbia/do-utilizador.png")}
+                    source={
+                      uriFotoPerfil
+                        ? { uri: uriFotoPerfil }
+                        : require("@/assets/images/fitbia/do-utilizador.png")
+                    }
                     style={configuracoesStyle.avatar}
                   />
                 </View>
