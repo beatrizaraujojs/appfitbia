@@ -10,6 +10,7 @@ import {
   TextInput,
   ScrollView,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import globalStyle from "@/styles/globalStyle";
 import homeStyle from "@/styles/homeStyle";
@@ -22,6 +23,7 @@ const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function HomeScreen() {
   const [busca, setBusca] = useState("");
+  const [nomeCliente, setNomeCliente] = useState("Cliente");
 
   const [queridinhos, setQueridinhos] = useState<any[]>([]);
   const [categorias, setCategorias] = useState<any[]>([]);
@@ -35,9 +37,33 @@ export default function HomeScreen() {
   useEffect(() => {
     async function carregarDadosHome() {
       try {
+        // 1. Tenta buscar o nome_cliente diretamente da API usando o token salvo
+        const token = await AsyncStorage.getItem("token");
+        if (token) {
+          try {
+            const respCliente = await fetch(`${API}/cliente`, {
+              headers: {
+                Accept: "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            const jsonCliente = await respCliente.json();
+            if (jsonCliente.success && jsonCliente.data?.nome_cliente) {
+              const primeiroNome = jsonCliente.data.nome_cliente.split(" ")[0];
+              setNomeCliente(primeiroNome);
+            }
+          } catch (e) {
+            // Fallback: se falhar a requisição, tenta ler do AsyncStorage local
+            const nomeSalvo = await AsyncStorage.getItem("nome_cliente");
+            if (nomeSalvo) {
+              setNomeCliente(nomeSalvo.split(" ")[0]);
+            }
+          }
+        }
+
         console.log("A tentar ligar à API em:", API);
 
-        // 1. Buscar Produtos
+        // 2. Buscar Produtos
         const respProdutos = await fetch(`${API}/produtos`);
         const textProdutos = await respProdutos.text();
 
@@ -75,7 +101,7 @@ export default function HomeScreen() {
           );
         }
 
-        // 2. Buscar Categorias (Corrigido para filtrar estritamente por ativa_categoria === "ATIVO")
+        // 3. Buscar Categorias
         const respCategorias = await fetch(`${API}/categorias`);
         const textCategorias = await respCategorias.text();
 
@@ -151,7 +177,7 @@ export default function HomeScreen() {
             <View style={homeStyle.conteudo}>
               <View style={homeStyle.header}>
                 <View>
-                  <Text style={homeStyle.saudacao}>Olá, Beatriz!</Text>
+                  <Text style={homeStyle.saudacao}>Olá, {nomeCliente}!</Text>
                   <Text style={homeStyle.subSaudacao}>
                     O que vai nutrir seu corpo hoje?
                   </Text>
