@@ -13,21 +13,23 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as ImagePicker from "expo-image-picker";
 
 import BottomBar from "@/components/BottomBar";
 import editarContaStyle from "@/styles/editarContaStyle";
 import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
-const API = `${SERVIDOR}/api/v1`;
-const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
-
+const SERVIDOR_WEB = "http://localhost:8081";
+const SERVIDOR_IMAGENS = "http://localhost:8081";
+const API = `${SERVIDOR_WEB}/api/v1`;
+const IMAGEM_BASE = `${SERVIDOR_IMAGENS}/clientes`;
 
 export default function EditarContaScreen() {
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [telefone, setTelefone] = useState("");
   const [cpf, setCpf] = useState("");
+  const [fotoCliente, setFotoCliente] = useState<string | null>(null);
   
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
@@ -56,10 +58,12 @@ export default function EditarContaScreen() {
         if (resposta.ok && json.success) {
           setNome(json.data.nome_cliente || "");
           setEmail(json.data.email_cliente || "");
-          // Mapeado para whatsapp_cliente conforme o seu Model
           setTelefone(json.data.whatsapp_cliente || "");
-          // Mapeado para cpf_cliente conforme o seu Model
           setCpf(json.data.cpf_cliente || "");
+
+          if (json.data.foto_cliente) {
+            setFotoCliente(json.data.foto_cliente);
+          }
         } else {
           Alert.alert("Erro", "Não foi possível carregar os seus dados.");
         }
@@ -73,7 +77,30 @@ export default function EditarContaScreen() {
     carregarDadosCliente();
   }, []);
 
-  // 2. Salvar as alterações feitas pelo utilizador
+  // 2. Selecionar a foto da galeria
+  async function handleSelecionarFoto() {
+    const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    
+    if (!permissao.granted) {
+      Alert.alert("Permissão negada", "Precisamos de permissão para aceder à galeria.");
+      return;
+    }
+
+    let resultado = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+      base64: true,
+    });
+
+    if (!resultado.canceled && resultado.assets[0].base64) {
+      const base64Image = `data:image/jpeg;base64,${resultado.assets[0].base64}`;
+      setFotoCliente(base64Image);
+    }
+  }
+
+  // 3. Salvar as alterações feitas pelo utilizador
   async function handleSalvarAlteracoes() {
     try {
       setSalvando(true);
@@ -88,21 +115,23 @@ export default function EditarContaScreen() {
         },
         body: JSON.stringify({
           nome_cliente: nome,
-          email_cliente: email,
-          whatsapp_cliente: telefone, // Enviando com a chave correta da base de dados
-          cpf_cliente: cpf,           // Enviando com a chave correta da base de dados
+          email_cliente: email, // Corrigido para corresponder à regra da API
+          whatsapp_cliente: telefone,
+          cpf_cliente: cpf,
+          foto_cliente: fotoCliente,
         }),
       });
 
       const json = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro de validação", json.message || "Verifique os campos preenchidos.");
+        const mensagemErro = json.message || (json.errors ? JSON.stringify(json.errors) : "Verifique os campos preenchidos.");
+        Alert.alert("Erro de validação", mensagemErro);
         return;
       }
 
       Alert.alert("Sucesso", "Dados atualizados com sucesso!");
-      router.back();
+      router.replace("/configuracoes");
     } catch (erro) {
       console.log("Erro ao atualizar dados:", erro);
       Alert.alert("Erro", "Não foi possível ligar ao servidor.");
@@ -110,6 +139,12 @@ export default function EditarContaScreen() {
       setSalvando(false);
     }
   }
+
+  const uriFotoPerfil = fotoCliente 
+    ? (fotoCliente.startsWith("http") || fotoCliente.startsWith("data:") 
+        ? fotoCliente 
+        : `${IMAGEM_BASE}/${fotoCliente}`)
+    : null;
 
   if (carregando) {
     return (
@@ -146,10 +181,17 @@ export default function EditarContaScreen() {
                 <View style={editarContaStyle.avatarSection}>
                   <View style={editarContaStyle.avatarContainer}>
                     <Image
-                      source={require("@/assets/images/fitbia/do-utilizador.png")}
+                      source={
+                        uriFotoPerfil
+                          ? { uri: uriFotoPerfil }
+                          : require("@/assets/images/fitbia/do-utilizador.png")
+                      }
                       style={editarContaStyle.avatarIcone}
                     />
-                    <Pressable style={editarContaStyle.btnFotoBadge}>
+                    <Pressable 
+                      style={editarContaStyle.btnFotoBadge}
+                      onPress={handleSelecionarFoto}
+                    >
                       <Image
                         source={require("@/assets/images/fitbia/camera.png")}
                         style={editarContaStyle.iconeCamera}
