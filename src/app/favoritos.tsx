@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,67 +8,139 @@ import {
   ImageBackground,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import globalStyle from "@/styles/globalStyle";
 import BottomBar from "@/components/BottomBar";
 import favoritosStyle from "@/styles/favoritosStyle";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+
 export default function FavoritosScreen() {
-  const [categoriaAtiva, setCategoriaAtiva] = useState("Todos");
+  const [categoriaAtiva, setCategoriaAtiva] = useState<
+    number | string | "Todos"
+  >("Todos");
+  const [categorias, setCategorias] = useState<any[]>([]);
+  const [listaFavoritos, setListaFavoritos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [favoritos, setFavoritos] = useState<{ [key: string]: boolean }>({
-    "1": true,
-    "2": true,
-    "3": true,
-    "4": true,
-  });
+  // Carrega as Categorias do Dash e os Favoritos do Usuário ao focar na tela
+  useFocusEffect(
+    useCallback(() => {
+      async function carregarDados() {
+        try {
+          setLoading(true);
+          const token = await AsyncStorage.getItem("token");
 
-  const toggleFavorito = (idItem: string) => {
-    setFavoritos((prev) => ({
-      ...prev,
-      [idItem]: !prev[idItem],
-    }));
+          // 1. Buscar Categorias ativas da API
+          const respCat = await fetch(`${API}/categorias`);
+          const jsonCat = await respCat.json();
+
+          let listaCatData = [];
+          if (jsonCat && jsonCat.success && Array.isArray(jsonCat.data)) {
+            listaCatData = jsonCat.data;
+          } else if (Array.isArray(jsonCat)) {
+            listaCatData = jsonCat;
+          }
+
+          const categoriasAtivas = listaCatData
+            .filter(
+              (cat: any) =>
+                cat.ativa_categoria === "ATIVO" ||
+                cat.status_categoria === "ATIVO",
+            )
+            .sort(
+              (a: any, b: any) =>
+                (a.ordem_categoria || 0) - (b.ordem_categoria || 0),
+            );
+
+          setCategorias(categoriasAtivas);
+
+          // 2. Buscar Favoritos do Cliente Logado
+          if (token) {
+            const respFav = await fetch(`${API}/favoritos`, {
+              method: "GET",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (respFav.ok) {
+              const dataFav = await respFav.json();
+              setListaFavoritos(dataFav);
+            }
+          }
+        } catch (error) {
+          console.error("Erro ao carregar dados em favoritos:", error);
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      carregarDados();
+    }, []),
+  );
+
+  const toggleFavorito = async (idProduto: number | string) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await fetch(`${API}/favoritos/toggle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id_produto_fk: idProduto }),
+      });
+
+      if (response.ok) {
+        setListaFavoritos((prev) =>
+          prev.filter((item: any) => String(item.id) !== String(idProduto)),
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao alterar favorito:", error);
+    }
   };
 
-  const categorias = [
-    "Todos",
-    "Marmitas",
-    "Caldos",
-    "Sobremesas",
-    "Pacotes Fit",
-  ];
+  // Filtragem robusta comparando tanto por ID da categoria quanto por nome
+  const favoritosFiltrados = listaFavoritos.filter((item: any) => {
+    if (categoriaAtiva === "Todos") return true;
 
-  const listaFavoritos = [
-    {
-      id: "1",
-      titulo: "Marmita Fit",
-      descricao:
-        "A marmita fit é uma refeição prática, saudável e saborosa, ideal para manter uma alimentação equilibrada no dia a dia.",
-      imagem: require("@/assets/images/fotosfitbia/carne_desfiada_arroz_legumes.png"),
-    },
-    {
-      id: "2",
-      titulo: "Salmão com batatas",
-      descricao:
-        "O salmão com batatas é uma refeição nutritiva, saborosa e equilibrada, ideal para quem busca praticidade sem abrir mão de uma alimentação saudável.",
-      imagem: require("@/assets/images/fotosfitbia/salmao_batatas_assadas_brocolis.png"),
-    },
-    {
-      id: "3",
-      titulo: "Fondue",
-      descricao:
-        "O fondue é uma opção deliciosa, cremosa e irresistível, perfeita para transformar qualquer momento em uma experiência especial e cheia de sabor.",
-      imagem: require("@/assets/images/fotosfitbia/fondue.png"),
-    },
-    {
-      id: "4",
-      titulo: "Crepioca",
-      descricao:
-        "A crepioca é uma opção saudável, versátil e deliciosa, perfeita para qualquer hora do dia, unindo sabor e praticidade em cada mordida.",
-      imagem: require("@/assets/images/fotosfitbia/crepioca.png"),
-    },
-  ];
+    const itemCatId = String(item.id_categoria || "");
+    const itemCatNome = String(item.categoria || "")
+      .trim()
+      .toLowerCase();
+
+    const catAtivaStr = String(categoriaAtiva);
+
+    // Procura o nome correspondente à categoria ativa caso o usuário tenha clicado num ID
+    const categoriaSelecionadaObj = categorias.find(
+      (c) => String(c.id_categoria || c.id) === catAtivaStr,
+    );
+    const nomeCatSelecionada = categoriaSelecionadaObj
+      ? String(
+          categoriaSelecionadaObj.nome_categoria ||
+            categoriaSelecionadaObj.nome ||
+            "",
+        )
+          .trim()
+          .toLowerCase()
+      : catAtivaStr.toLowerCase();
+
+    // Compara por ID ou por Nome
+    return itemCatId === catAtivaStr || itemCatNome === nomeCatSelecionada;
+  });
+
+  const nomeCategoriaAtual =
+    categoriaAtiva === "Todos"
+      ? null
+      : categorias.find(
+          (c) => String(c.id_categoria || c.id) === String(categoriaAtiva),
+        )?.nome_categoria || categoriaAtiva;
 
   return (
     <View style={globalStyle.container}>
@@ -82,7 +154,7 @@ export default function FavoritosScreen() {
             style={globalStyle.scrollConteudo}
             showsVerticalScrollIndicator={false}
           >
-            {/* Header com a seta de voltar alinhada */}
+            {/* Header */}
             <View style={favoritosStyle.header}>
               <View style={favoritosStyle.conteudoHeader}>
                 <Pressable onPress={() => router.back()}>
@@ -102,84 +174,116 @@ export default function FavoritosScreen() {
               </View>
             </View>
 
-            {/* Carrossel de Categorias */}
+            {/* Abas Dinâmicas de Categorias (Iguais à Home e Menu) */}
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               style={favoritosStyle.scrollCategorias}
               contentContainerStyle={favoritosStyle.containerCategorias}
             >
-              {categorias.map((cat) => (
-                <Pressable
-                  key={cat}
-                  onPress={() => setCategoriaAtiva(cat)}
-                  style={favoritosStyle.btnCategoria}
+              <Pressable
+                onPress={() => setCategoriaAtiva("Todos")}
+                style={favoritosStyle.btnCategoria}
+              >
+                <Text
+                  style={[
+                    favoritosStyle.txtCategoria,
+                    categoriaAtiva === "Todos" &&
+                      favoritosStyle.txtCategoriaAtiva,
+                  ]}
                 >
-                  <Text
-                    style={[
-                      favoritosStyle.txtCategoria,
-                      categoriaAtiva === cat &&
-                        favoritosStyle.txtCategoriaAtiva,
-                    ]}
+                  Todos
+                </Text>
+                {categoriaAtiva === "Todos" && (
+                  <View style={favoritosStyle.indicadorAtivo} />
+                )}
+              </Pressable>
+
+              {categorias.map((cat) => {
+                const catId = cat.id_categoria || cat.id;
+                const catNome = cat.nome_categoria || cat.nome;
+                const isActive = String(categoriaAtiva) === String(catId);
+
+                return (
+                  <Pressable
+                    key={catId}
+                    onPress={() => setCategoriaAtiva(catId)}
+                    style={favoritosStyle.btnCategoria}
                   >
-                    {cat}
-                  </Text>
-                  {categoriaAtiva === cat && (
-                    <View style={favoritosStyle.indicadorAtivo} />
-                  )}
-                </Pressable>
-              ))}
+                    <Text
+                      style={[
+                        favoritosStyle.txtCategoria,
+                        isActive && favoritosStyle.txtCategoriaAtiva,
+                      ]}
+                    >
+                      {catNome}
+                    </Text>
+                    {isActive && <View style={favoritosStyle.indicadorAtivo} />}
+                  </Pressable>
+                );
+              })}
             </ScrollView>
 
-            {/* Lista de Favoritos */}
+            {/* Lista de Favoritos Filtrados */}
             <View style={favoritosStyle.main}>
-              {listaFavoritos.map((item) => (
-                <View key={item.id} style={favoritosStyle.cardFavorito}>
-                  <View style={favoritosStyle.areaImagem}>
-                    <Image
-                      source={item.imagem}
-                      style={favoritosStyle.imgPrato}
-                      resizeMode="cover"
-                    />
-                    <Pressable
-                      style={favoritosStyle.btnCoracao}
-                      onPress={() => toggleFavorito(item.id)}
-                    >
+              {favoritosFiltrados.length > 0 ? (
+                favoritosFiltrados.map((item: any) => (
+                  <View key={item.id} style={favoritosStyle.cardFavorito}>
+                    <View style={favoritosStyle.areaImagem}>
                       <Image
                         source={
-                          favoritos[item.id]
-                            ? require("@/assets/images/fitbia/coracaovermelho.png")
-                            : require("@/assets/images/fitbia/coracao.png")
+                          item.imagem
+                            ? { uri: item.imagem }
+                            : require("@/assets/images/fotosfitbia/carne_desfiada_arroz_legumes.png")
                         }
-                        style={favoritosStyle.iconeCoracao}
+                        style={favoritosStyle.imgPrato}
+                        resizeMode="cover"
                       />
-                    </Pressable>
-                  </View>
+                      <Pressable
+                        style={favoritosStyle.btnCoracao}
+                        onPress={() => toggleFavorito(item.id)}
+                      >
+                        <Image
+                          source={require("@/assets/images/fitbia/coracaovermelho.png")}
+                          style={favoritosStyle.iconeCoracao}
+                        />
+                      </Pressable>
+                    </View>
 
-                  <View style={favoritosStyle.infoCard}>
-                    <Text style={favoritosStyle.tituloPrato}>
-                      {item.titulo}
-                    </Text>
-                    <Text style={favoritosStyle.descPrato}>
-                      {item.descricao}
-                    </Text>
-
-                    <Pressable style={favoritosStyle.btnPecaAgora}>
-                      <Text style={favoritosStyle.txtPecaAgora}>
-                        Peça agora
+                    <View style={favoritosStyle.infoCard}>
+                      <Text style={favoritosStyle.tituloPrato}>
+                        {item.titulo}
                       </Text>
-                      <Image
-                        source={require("@/assets/images/fitbia/seta-direita.png")}
-                        style={favoritosStyle.iconeSeta}
-                      />
-                    </Pressable>
+                      <Text style={favoritosStyle.descPrato}>
+                        {item.descricao}
+                      </Text>
+
+                      <Pressable style={favoritosStyle.btnPecaAgora}>
+                        <Text style={favoritosStyle.txtPecaAgora}>
+                          Peça agora
+                        </Text>
+                        <Image
+                          source={require("@/assets/images/fitbia/seta-direita.png")}
+                          style={favoritosStyle.iconeSeta}
+                        />
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))}
+                ))
+              ) : (
+                <Text
+                  style={{ textAlign: "center", color: "#666", marginTop: 40 }}
+                >
+                  {loading
+                    ? "A carregar favoritos..."
+                    : categoriaAtiva === "Todos"
+                      ? "Ainda não tens nenhum item nos favoritos."
+                      : `Nenhum favorito encontrado na categoria ${nomeCategoriaAtual}.`}
+                </Text>
+              )}
             </View>
           </ScrollView>
 
-          {/* Barra inferior */}
           <BottomBar abaAtiva="config" />
         </SafeAreaView>
       </ImageBackground>

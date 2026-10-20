@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { router } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import {
@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "expo-router";
 
 import globalStyle from "@/styles/globalStyle";
 import homeStyle from "@/styles/homeStyle";
@@ -34,127 +35,125 @@ export default function HomeScreen() {
     null,
   );
 
-  useEffect(() => {
-    async function carregarDadosHome() {
-      try {
-        // 1. Tenta buscar o nome_cliente diretamente da API usando o token salvo
-        const token = await AsyncStorage.getItem("token");
-        if (token) {
-          try {
-            const respCliente = await fetch(`${API}/cliente`, {
-              headers: {
-                Accept: "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            });
-            const jsonCliente = await respCliente.json();
-            if (jsonCliente.success && jsonCliente.data?.nome_cliente) {
-              const primeiroNome = jsonCliente.data.nome_cliente.split(" ")[0];
-              setNomeCliente(primeiroNome);
-            }
-          } catch (e) {
-            // Fallback: se falhar a requisição, tenta ler do AsyncStorage local
-            const nomeSalvo = await AsyncStorage.getItem("nome_cliente");
-            if (nomeSalvo) {
-              setNomeCliente(nomeSalvo.split(" ")[0]);
+  useFocusEffect(
+    useCallback(() => {
+      async function carregarDadosHome() {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          if (token) {
+            try {
+              const respCliente = await fetch(`${API}/cliente`, {
+                headers: {
+                  Accept: "application/json",
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+              const jsonCliente = await respCliente.json();
+              if (jsonCliente.success && jsonCliente.data?.nome_cliente) {
+                const primeiroNome =
+                  jsonCliente.data.nome_cliente.split(" ")[0];
+                setNomeCliente(primeiroNome);
+              }
+            } catch (e) {
+              const nomeSalvo = await AsyncStorage.getItem("nome_cliente");
+              if (nomeSalvo) {
+                setNomeCliente(nomeSalvo.split(" ")[0]);
+              }
             }
           }
-        }
 
-        console.log("A tentar ligar à API em:", API);
+          // 2. Buscar Produtos e Favoritos em simultâneo
+          const [respProdutos, respFavoritos] = await Promise.all([
+            fetch(`${API}/produtos`),
+            token
+              ? fetch(`${API}/favoritos`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                })
+              : Promise.resolve(null),
+          ]);
 
-        // 2. Buscar Produtos
-        const respProdutos = await fetch(`${API}/produtos`);
-        const textProdutos = await respProdutos.text();
+          const jsonProdutos = await respProdutos.json();
+          let idsFavoritos = [];
 
-        let jsonProdutos;
-        try {
-          jsonProdutos = JSON.parse(textProdutos);
-        } catch (e) {
-          console.error(
-            "Erro: A resposta de produtos não é um JSON válido. Recebido:",
-            textProdutos,
-          );
-          return;
-        }
+          if (respFavoritos && respFavoritos.ok) {
+            const jsonFavoritos = await respFavoritos.json();
+            idsFavoritos = jsonFavoritos.map((fav: any) => fav.id);
+          }
 
-        if (
-          jsonProdutos &&
-          jsonProdutos.success &&
-          Array.isArray(jsonProdutos.data)
-        ) {
-          const produtosAtivos = jsonProdutos.data
-            .filter((produto: any) => produto.status_produto === "ATIVO")
-            .map((produto: any) => ({
-              ...produto,
-              favorito: false,
-            }));
+          if (
+            jsonProdutos &&
+            jsonProdutos.success &&
+            Array.isArray(jsonProdutos.data)
+          ) {
+            const produtosAtivos = jsonProdutos.data
+              .filter((produto: any) => produto.status_produto === "ATIVO")
+              .map((produto: any) => ({
+                ...produto,
+                favorito: idsFavoritos.includes(produto.id_produto),
+              }));
 
-          const destaques = produtosAtivos.filter(
-            (produto: any) => produto.destaque_produto === "SIM",
-          );
-          setQueridinhos(destaques.length > 0 ? destaques : produtosAtivos);
-        } else {
-          console.warn(
-            "A estrutura de produtos da API veio diferente do esperado:",
-            jsonProdutos,
-          );
-        }
-
-        // 3. Buscar Categorias
-        const respCategorias = await fetch(`${API}/categorias`);
-        const textCategorias = await respCategorias.text();
-
-        let jsonCategorias;
-        try {
-          jsonCategorias = JSON.parse(textCategorias);
-        } catch (e) {
-          console.error(
-            "Erro: A resposta de categorias não é um JSON válido. Recebido:",
-            textCategorias,
-          );
-          return;
-        }
-
-        if (
-          jsonCategorias &&
-          jsonCategorias.success &&
-          Array.isArray(jsonCategorias.data)
-        ) {
-          const categoriasAtivas = jsonCategorias.data
-            .filter(
-              (cat: any) =>
-                cat.ativa_categoria === "ATIVO" ||
-                cat.status_categoria === "ATIVO",
-            )
-            .sort(
-              (a: any, b: any) =>
-                (a.ordem_categoria || 0) - (b.ordem_categoria || 0),
+            const destaques = produtosAtivos.filter(
+              (produto: any) => produto.destaque_produto === "SIM",
             );
+            setQueridinhos(destaques.length > 0 ? destaques : produtosAtivos);
+          }
 
-          setCategorias(categoriasAtivas);
-        } else {
-          console.warn(
-            "A estrutura de categorias da API veio diferente do esperado:",
-            jsonCategorias,
-          );
+          // 3. Buscar Categorias
+          const respCategorias = await fetch(`${API}/categorias`);
+          const jsonCategorias = await respCategorias.json();
+
+          if (
+            jsonCategorias &&
+            jsonCategorias.success &&
+            Array.isArray(jsonCategorias.data)
+          ) {
+            const categoriasAtivas = jsonCategorias.data
+              .filter(
+                (cat: any) =>
+                  cat.ativa_categoria === "ATIVO" ||
+                  cat.status_categoria === "ATIVO",
+              )
+              .sort(
+                (a: any, b: any) =>
+                  (a.ordem_categoria || 0) - (b.ordem_categoria || 0),
+              );
+
+            setCategorias(categoriasAtivas);
+          }
+        } catch (erro) {
+          console.error("Erro crítico ao carregar dados da API na Home:", erro);
         }
-      } catch (erro) {
-        console.error("Erro crítico ao carregar dados da API na Home:", erro);
       }
+
+      carregarDadosHome();
+    }, []),
+  );
+
+  const toggleFavorito = async (idItem: number) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await fetch(`${API}/favoritos/toggle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id_produto_fk: idItem }),
+      });
+
+      if (response.ok) {
+        setQueridinhos((prev) =>
+          prev.map((item) =>
+            item.id_produto === idItem
+              ? { ...item, favorito: !item.favorito }
+              : item,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao alterar favorito na Home:", error);
     }
-
-    carregarDadosHome();
-  }, []);
-
-  const toggleFavorito = (idItem: number) => {
-    setQueridinhos((prev) =>
-      prev.map((item) =>
-        item.id_produto === idItem
-          ? { ...item, favorito: !item.favorito }
-          : item,
-      ),
-    );
   };
 
   const abrirModal = (produto: any) => {

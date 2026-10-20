@@ -55,6 +55,8 @@ export default function EditarContaScreen() {
 
         const json = await resposta.json();
 
+        // console.log("JSON da API:", json)
+
         if (resposta.ok && json.success) {
           setNome(json.data.nome_cliente || "");
           setEmail(json.data.email_cliente || "");

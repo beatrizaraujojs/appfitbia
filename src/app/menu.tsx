@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useEffect, useRef } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
   Image,
   ImageBackground,
@@ -10,6 +10,8 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "expo-router";
 
 import globalStyle from "@/styles/globalStyle";
 import menuStyle from "@/styles/menuStyle";
@@ -60,71 +62,109 @@ export default function MenuScreen() {
   );
 
   // 1. Carregar Categorias ao abrir a tela
-  useEffect(() => {
-    async function carregarCategorias() {
-      try {
-        const resp = await fetch(`${API}/categorias`);
-        const json = await resp.json();
+  useFocusEffect(
+    useCallback(() => {
+      async function carregarCategorias() {
+        try {
+          const resp = await fetch(`${API}/categorias`);
+          const json = await resp.json();
 
-        if (json && json.success && Array.isArray(json.data)) {
-          setCategorias(json.data);
-        } else if (Array.isArray(json)) {
-          setCategorias(json);
+          if (json && json.success && Array.isArray(json.data)) {
+            setCategorias(json.data);
+          } else if (Array.isArray(json)) {
+            setCategorias(json);
+          }
+        } catch (erro) {
+          console.error("Erro ao carregar categorias:", erro);
         }
-      } catch (erro) {
-        console.error("Erro ao carregar categorias:", erro);
       }
-    }
 
-    carregarCategorias();
-  }, []);
+      carregarCategorias();
+    }, []),
+  );
 
-  // 2. Carregar Produtos sempre que a Categoria Ativa mudar
-  useEffect(() => {
-    async function carregarProdutos() {
-      try {
-        // Se for "Todos", buscamos todos os produtos. Se tiver ID, filtramos pela URL ou localmente
-        const url = `${API}/produtos`;
+  // 2. Carregar Produtos e Favoritos sempre que a Categoria Ativa mudar ou a tela ganhar foco
+  useFocusEffect(
+    useCallback(() => {
+      async function carregarProdutosComFavoritos() {
+        try {
+          const token = await AsyncStorage.getItem("token");
+          const url = `${API}/produtos`;
 
-        const resp = await fetch(url);
-        const json = await resp.json();
+          const [respProdutos, respFavoritos] = await Promise.all([
+            fetch(url),
+            token
+              ? fetch(`${API}/favoritos`, {
+                  headers: { Authorization: `Bearer ${token}` },
+                })
+              : Promise.resolve(null),
+          ]);
 
-        let listaProdutos = [];
-        if (json && json.success && Array.isArray(json.data)) {
-          listaProdutos = json.data;
-        } else if (Array.isArray(json)) {
-          listaProdutos = json;
-        }
+          const json = await respProdutos.json();
+          let idsFavoritos = [];
 
-        const produtosMapeados = listaProdutos.map((produto: any) => ({
-          ...produto,
-          favorito: false,
-        }));
+          if (respFavoritos && respFavoritos.ok) {
+            const jsonFavoritos = await respFavoritos.json();
+            idsFavoritos = jsonFavoritos.map((fav: any) => fav.id);
+          }
 
-        setProdutosCardapio(produtosMapeados);
+          let listaProdutos = [];
+          if (json && json.success && Array.isArray(json.data)) {
+            listaProdutos = json.data;
+          } else if (Array.isArray(json)) {
+            listaProdutos = json;
+          }
 
-        setTimeout(() => {
-          scrollViewRef.current?.scrollTo({
-            y: 320,
-            animated: true,
+          const produtosMapeados = listaProdutos.map((produto: any) => {
+            const prodId = produto.id_produto || produto.id;
+            return {
+              ...produto,
+              favorito: idsFavoritos.includes(prodId),
+            };
           });
-        }, 200);
-      } catch (erro) {
-        console.error("Erro ao carregar produtos:", erro);
+
+          setProdutosCardapio(produtosMapeados);
+
+          setTimeout(() => {
+            scrollViewRef.current?.scrollTo({
+              y: 320,
+              animated: true,
+            });
+          }, 200);
+        } catch (erro) {
+          console.error("Erro ao carregar produtos:", erro);
+        }
       }
+
+      carregarProdutosComFavoritos();
+    }, [categoriaAtiva]),
+  );
+
+  const toggleFavorito = async (idItem: number) => {
+    try {
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await fetch(`${API}/favoritos/toggle`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ id_produto_fk: idItem }),
+      });
+
+      if (response.ok) {
+        setProdutosCardapio((prev) =>
+          prev.map((item) =>
+            item.id_produto === idItem || item.id === idItem
+              ? { ...item, favorito: !item.favorito }
+              : item,
+          ),
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao alterar favorito no Menu:", error);
     }
-
-    carregarProdutos();
-  }, [categoriaAtiva]);
-
-  const toggleFavorito = (idItem: number) => {
-    setProdutosCardapio((prev) =>
-      prev.map((item) =>
-        item.id_produto === idItem || item.id === idItem
-          ? { ...item, favorito: !item.favorito }
-          : item,
-      ),
-    );
   };
 
   const abrirModal = (produto: any) => {
@@ -132,7 +172,6 @@ export default function MenuScreen() {
     setModalVisivel(true);
   };
 
-  // Filtragem local por texto de busca e por categoria selecionada
   const produtosFiltrados = produtosCardapio.filter((produto) => {
     const nomeProd = produto.nome_produto || produto.nome || "";
     const matchBusca = nomeProd.toLowerCase().includes(busca.toLowerCase());
@@ -151,7 +190,6 @@ export default function MenuScreen() {
     return matchBusca && matchCategoria;
   });
 
-  // Agrupa os produtos por categoria para a aba "Todos" de forma segura
   const produtosPorCategoria = categorias
     .map((cat) => {
       const catId = cat.id_categoria || cat.id;
@@ -181,7 +219,6 @@ export default function MenuScreen() {
           (c) => String(c.id_categoria || c.id) === String(categoriaAtiva),
         )?.nome_categoria || "Categoria";
 
-  // Função auxiliar para renderizar cada card de produto mantendo o padrão exato
   const renderizarCard = (produto: any) => {
     const prodId = produto.id_produto || produto.id;
     const imagemUri =
@@ -253,7 +290,6 @@ export default function MenuScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={menuStyle.conteudo}>
-              {/* Header */}
               <View style={menuStyle.header}>
                 <Pressable
                   onPress={() => router.back()}
@@ -269,7 +305,6 @@ export default function MenuScreen() {
                 />
               </View>
 
-              {/* Destaque */}
               <View style={menuStyle.titulosContainer}>
                 <Text style={menuStyle.subtitulo}>Nossa comida</Text>
                 <Text style={menuStyle.tituloPrincipal}>
@@ -277,7 +312,6 @@ export default function MenuScreen() {
                 </Text>
               </View>
 
-              {/* Busca */}
               <View style={menuStyle.buscarContainer}>
                 <Image
                   style={menuStyle.iconeBusca}
@@ -292,7 +326,6 @@ export default function MenuScreen() {
                 />
               </View>
 
-              {/* Abas de Categorias */}
               <View style={menuStyle.abasCentralizadas}>
                 <ScrollView
                   horizontal
@@ -342,7 +375,6 @@ export default function MenuScreen() {
                 </ScrollView>
               </View>
 
-              {/* Pratos da Semana Fixos */}
               <View style={menuStyle.secaoPratosSemana}>
                 <Text style={menuStyle.tituloSecao}>Pratos da semana</Text>
                 <ScrollView
@@ -362,7 +394,6 @@ export default function MenuScreen() {
 
               <View style={menuStyle.divisor} />
 
-              {/* Lista Vertical de Produtos com Título da Categoria */}
               <View style={menuStyle.listaProdutos}>
                 {produtosFiltrados.length === 0 ? (
                   <Text
