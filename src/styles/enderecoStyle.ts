@@ -15,7 +15,9 @@ const enderecoStyle = StyleSheet.create({
         paddingTop: 35,
         paddingBottom: 100,
     },
+    
  
+
     topo: {
         width: 350,
         height: 85,
@@ -232,16 +234,36 @@ textoExcluir: {
     color: "#FF3030",
 },
  
+
 modalEditar: {
-    width: 350,
-    height: 415,
-    backgroundColor: cores.brancoFundo,
-    borderRadius: 30,
-    paddingTop: 45,
-    paddingHorizontal: 43,
-    position: "relative",
+    backgroundColor: '#FFFFFF',
+    width: '90%',
+    maxHeight: '85%', // Aumentado para 85% da tela para dar mais espaço vertical
+    borderRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
 },
- 
+formularioEditar: {
+    paddingBottom: 20, // Garante um respiro no final do ScrollView ao rolar até o botão salvar
+},
+campoEditar: {
+    marginBottom: 14, // Espaçamento entre cada campo do formulário
+},
+inputEditar: {
+    height: 48, // Aumenta levemente a altura dos inputs para melhor toque
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    fontSize: 14,
+    color: '#333',
+},
+
 fecharEditar: {
     position: "absolute",
     right: 20,
@@ -261,15 +283,7 @@ tituloEditar: {
     marginBottom: 18,
 },
  
-formularioEditar: {
-    paddingBottom: 5,
-},
- 
-campoEditar: {
-    width: "100%",
-    marginBottom: 15,
-},
- 
+
 subtituloEditar: {
     fontSize: 12,
     fontWeight: "normal",
@@ -277,17 +291,7 @@ subtituloEditar: {
     marginBottom: 20,
 },
  
-inputEditar: {
-    width: "100%",
-    height: 22,
-    borderBottomWidth: 1,
-    borderBottomColor: "#AAAAAA",
-    fontSize: 12,
-    fontWeight: "normal",
-    color: "#000000",
-    paddingVertical: 0,
-},
- 
+
 linhaCampos: {
     width: "100%",
     flexDirection: "row",

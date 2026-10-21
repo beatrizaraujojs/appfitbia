@@ -1,6 +1,7 @@
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useState, useCallback } from "react";
 import {
+  ActivityIndicator,
   Image,
   ImageBackground,
   Pressable,
@@ -9,15 +10,80 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import globalStyle from "@/styles/globalStyle";
 import entregaStyle from "@/styles/entregaStyle";
 import BottomBar from "@/components/BottomBar";
 import TrocaDeEnderecoModal from "@/components/trocaDeEndereco";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+
 export default function EntregaScreen() {
   const [opcaoSelecionada, setOpcaoSelecionada] = useState<"entrega" | "retirada">("entrega");
   const [modalEnderecoVisivel, setModalEnderecoVisivel] = useState(false);
+  
+  const [enderecoAtual, setEnderecoAtual] = useState<any | null>(null);
+  const [loadingEndereco, setLoadingEndereco] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      carregarEnderecoAtivo();
+    }, [])
+  );
+
+  async function carregarEnderecoAtivo() {
+    try {
+      setLoadingEndereco(true);
+      const token = await AsyncStorage.getItem("token");
+      if (!token) return;
+
+      const enderecoSalvo = await AsyncStorage.getItem("enderecoSelecionado");
+      if (enderecoSalvo) {
+        setEnderecoAtual(JSON.parse(enderecoSalvo));
+        setLoadingEndereco(false);
+        return;
+      }
+
+      const response = await fetch(`${API}/enderecos`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const json = await response.json();
+
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+        const primeiroEndereco = json.data[0];
+        setEnderecoAtual(primeiroEndereco);
+        await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(primeiroEndereco));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar endereço principal:", error);
+    } finally {
+      setLoadingEndereco(false);
+    }
+  }
+
+  async function selecionarNovoEndereco(endereco: any) {
+    setEnderecoAtual(endereco);
+    setModalEnderecoVisivel(false);
+    try {
+      await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(endereco));
+    } catch (error) {
+      console.error("Erro ao salvar endereço selecionado:", error);
+    }
+  }
+
+  const ruaFormatada = enderecoAtual
+    ? `${enderecoAtual.rua_endereco}, ${enderecoAtual.numero_endereco || "S/N"}`
+    : "Nenhum endereço cadastrado";
+
+  const bairroFormatado = enderecoAtual
+    ? `${enderecoAtual.bairro_endereco ? enderecoAtual.bairro_endereco + " - " : ""}${enderecoAtual.cidade_endereco || "São Paulo"}`
+    : "Clique em trocar para adicionar";
 
   return (
     <View style={globalStyle.container}>
@@ -58,7 +124,7 @@ export default function EntregaScreen() {
               {/* Seção Entrega ou Retirada */}
               <Text style={entregaStyle.tituloSecao}>Entrega ou retirada</Text>
 
-              {/* Mapa */}
+              {/* Mapa (Compatível com Web e Mobile sem erros nativos) */}
               <View style={entregaStyle.boxMapa}>
                 <Image
                   source={require("@/assets/images/fitbia/mapa-exemplo.png")}
@@ -75,14 +141,18 @@ export default function EntregaScreen() {
                     style={entregaStyle.iconePin}
                     resizeMode="contain"
                   />
-                  <View>
-                    <Text style={entregaStyle.ruaTexto}>
-                      Rua Pedro de Medeiros, 13a
-                    </Text>
-                    <Text style={entregaStyle.bairroTexto}>
-                      Jardim Vila Carrão
-                    </Text>
-                  </View>
+                  {loadingEndereco ? (
+                    <ActivityIndicator size="small" color="#4CAF50" />
+                  ) : (
+                    <View>
+                      <Text style={entregaStyle.ruaTexto}>
+                        {ruaFormatada}
+                      </Text>
+                      <Text style={entregaStyle.bairroTexto}>
+                        {bairroFormatado}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 {/* Botão para abrir o Modal */}
@@ -106,7 +176,7 @@ export default function EntregaScreen() {
                 >
                   <Text style={entregaStyle.txtOpcao}>Entregar no endereço</Text>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={entregaStyle.valorEntrega}>R$ 10,00</Text>
+                    <Text style={entregaStyle.valorEntrega}>R\$ 10,00</Text>
                     <View
                       style={[
                         entregaStyle.radioOuter,
@@ -148,12 +218,14 @@ export default function EntregaScreen() {
               {/* Barra de Rodapé com valor e Continuar */}
               <View style={entregaStyle.barCheckout}>
                 <View style={entregaStyle.boxPrecoCheckout}>
-                  <Text style={entregaStyle.totalCheckout}>R$ 34,90</Text>
+                  <Text style={entregaStyle.totalCheckout}>
+                    {opcaoSelecionada === "entrega" ? "R\$ 44,90" : "R\$ 34,90"}
+                  </Text>
                   <Text style={entregaStyle.qtdItensCheckout}> / 4 itens</Text>
                 </View>
                 <Pressable
                   style={entregaStyle.btnContinuar}
-                  onPress={() => router.push("/pagamento")}
+                  onPress={() => router.push("/pagamento" as any)}
                 >
                   <Text style={entregaStyle.txtBtnContinuar}>Continuar</Text>
                 </Pressable>
@@ -165,6 +237,7 @@ export default function EntregaScreen() {
           <TrocaDeEnderecoModal
             visible={modalEnderecoVisivel}
             onClose={() => setModalEnderecoVisivel(false)}
+            onSelecionarEndereco={selecionarNovoEndereco}
           />
 
           <BottomBar abaAtiva="carrinho" />
