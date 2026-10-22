@@ -1,5 +1,5 @@
-import { router } from "expo-router";
-import { useState, useEffect } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useState, useCallback } from "react";
 import {
   Image,
   ImageBackground,
@@ -22,12 +22,19 @@ const SERVIDOR = "http://localhost:8081";
 
 export default function CarrinhoScreen() {
   const [cupom, setCupom] = useState("primeiropedido");
-  const [percentualDesconto, setPercentualDesconto] = useState(5); // 5% vindo do banco
+  const [percentualDesconto, setPercentualDesconto] = useState(5);
   const [modalCupomVisivel, setModalCupomVisivel] = useState(false);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
 
   const [produtoModalVisivel, setProdutoModalVisivel] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
+
+  // Recarrega o carrinho sempre que o ecrã ganha foco
+  useFocusEffect(
+    useCallback(() => {
+      carregarCarrinho();
+    }, [])
+  );
 
   async function carregarCarrinho() {
     try {
@@ -39,10 +46,6 @@ export default function CarrinhoScreen() {
       console.error("Erro ao carregar carrinho:", error);
     }
   }
-
-  useEffect(() => {
-    carregarCarrinho();
-  }, []);
 
   const alterarQuantidadeItem = (cartItemId: string, delta: number) => {
     const novaLista = itensCarrinho
@@ -87,7 +90,6 @@ export default function CarrinhoScreen() {
     0
   );
 
-  // Cálculo correto do desconto baseado na percentagem do banco (ex: 5%)
   const valorDesconto = cupom ? (totalItensValor * percentualDesconto) / 100 : 0.0;
   const subtotalValor = Math.max(0, totalItensValor - valorDesconto);
 
@@ -268,7 +270,9 @@ export default function CarrinhoScreen() {
                 </View>
 
                 <View style={carrinhoStyle.linhaResumo}>
-                  <Text style={carrinhoStyle.labelDesconto}>Desconto ({percentualDesconto}%)</Text>
+                  <Text style={carrinhoStyle.labelDesconto}>
+                    Desconto ({percentualDesconto}%)
+                  </Text>
                   <Text style={carrinhoStyle.valorDesconto}>
                     R$ {valorDesconto.toFixed(2).replace(".", ",")}
                   </Text>
@@ -295,7 +299,7 @@ export default function CarrinhoScreen() {
                 </View>
                 <Pressable
                   style={carrinhoStyle.btnContinuar}
-                  onPress={() => router.push("/entrega")}
+                  onPress={() => router.push("/entrega" as any)}
                 >
                   <Text style={carrinhoStyle.txtBtnContinuar}>Continuar</Text>
                 </Pressable>

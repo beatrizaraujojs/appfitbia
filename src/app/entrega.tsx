@@ -27,11 +27,35 @@ export default function EntregaScreen() {
   const [enderecoAtual, setEnderecoAtual] = useState<any | null>(null);
   const [loadingEndereco, setLoadingEndereco] = useState(true);
 
+  const [subtotalCarrinho, setSubtotalCarrinho] = useState(0);
+  const [qtdItensCarrinho, setQtdItensCarrinho] = useState(0);
+
   useFocusEffect(
     useCallback(() => {
       carregarEnderecoAtivo();
+      carregarCarrinhoDoStorage();
     }, [])
   );
+
+  async function carregarCarrinhoDoStorage() {
+    try {
+      const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
+      if (carrinhoSalvo) {
+        const itens = JSON.parse(carrinhoSalvo);
+        const subtotalBruto = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
+        const quantidade = itens.reduce((acc: number, item: any) => acc + (item.quantidade || 0), 0);
+        
+        // Aplica o desconto padrão de 5%
+        const desconto = (subtotalBruto * 5) / 100;
+        const subtotalComDesconto = Math.max(0, subtotalBruto - desconto);
+
+        setSubtotalCarrinho(subtotalComDesconto);
+        setQtdItensCarrinho(quantidade);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar carrinho na entrega:", error);
+    }
+  }
 
   async function carregarEnderecoAtivo() {
     try {
@@ -85,6 +109,9 @@ export default function EntregaScreen() {
     ? `${enderecoAtual.bairro_endereco ? enderecoAtual.bairro_endereco + " - " : ""}${enderecoAtual.cidade_endereco || "São Paulo"}`
     : "Clique em trocar para adicionar";
 
+  const taxaEntrega = opcaoSelecionada === "entrega" ? 10.00 : 0.00;
+  const valorFinalCheckout = subtotalCarrinho + taxaEntrega;
+
   return (
     <View style={globalStyle.container}>
       <ImageBackground
@@ -124,7 +151,7 @@ export default function EntregaScreen() {
               {/* Seção Entrega ou Retirada */}
               <Text style={entregaStyle.tituloSecao}>Entrega ou retirada</Text>
 
-              {/* Mapa (Compatível com Web e Mobile sem erros nativos) */}
+              {/* Mapa */}
               <View style={entregaStyle.boxMapa}>
                 <Image
                   source={require("@/assets/images/fitbia/mapa-exemplo.png")}
@@ -155,7 +182,6 @@ export default function EntregaScreen() {
                   )}
                 </View>
 
-                {/* Botão para abrir o Modal */}
                 <Pressable onPress={() => setModalEnderecoVisivel(true)}>
                   <Text style={entregaStyle.txtTrocar}>Trocar</Text>
                 </Pressable>
@@ -176,7 +202,7 @@ export default function EntregaScreen() {
                 >
                   <Text style={entregaStyle.txtOpcao}>Entregar no endereço</Text>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={entregaStyle.valorEntrega}>R\$ 10,00</Text>
+                    <Text style={entregaStyle.valorEntrega}>R$ 10,00</Text>
                     <View
                       style={[
                         entregaStyle.radioOuter,
@@ -219,13 +245,16 @@ export default function EntregaScreen() {
               <View style={entregaStyle.barCheckout}>
                 <View style={entregaStyle.boxPrecoCheckout}>
                   <Text style={entregaStyle.totalCheckout}>
-                    {opcaoSelecionada === "entrega" ? "R\$ 44,90" : "R\$ 34,90"}
+                    R$ {valorFinalCheckout.toFixed(2).replace(".", ",")}
                   </Text>
-                  <Text style={entregaStyle.qtdItensCheckout}> / 4 itens</Text>
+                  <Text style={entregaStyle.qtdItensCheckout}>
+                    {" "}
+                    / {qtdItensCarrinho} item(ns)
+                  </Text>
                 </View>
                 <Pressable
                   style={entregaStyle.btnContinuar}
-                  onPress={() => router.push("/pagamento" as any)}
+                  onPress={() => router.push("/pagamento")}
                 >
                   <Text style={entregaStyle.txtBtnContinuar}>Continuar</Text>
                 </Pressable>
