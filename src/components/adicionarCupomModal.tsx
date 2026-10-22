@@ -7,13 +7,17 @@ import {
   Pressable,
   Image,
   StyleSheet,
+  Alert,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 interface ModalProps {
   visible: boolean;
   onClose: () => void;
-  onAplicarCupom?: (codigo: string) => void;
+  onAplicarCupom?: (codigo: string, desconto: number) => void;
 }
+
+const SERVIDOR = "http://localhost:8081"; // Alinha com a porta do teu projeto
 
 export default function AdicionarCupomModal({
   visible,
@@ -21,13 +25,48 @@ export default function AdicionarCupomModal({
   onAplicarCupom,
 }: ModalProps) {
   const [cupom, setCupom] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleAplicar = () => {
-    if (onAplicarCupom) {
-      onAplicarCupom(cupom);
+  const handleAplicar = async () => {
+    if (!cupom.trim()) {
+      Alert.alert("Atenção", "Digite um código de cupom.");
+      return;
     }
-    setCupom("");
-    onClose();
+
+    try {
+      setLoading(true);
+      const token = await AsyncStorage.getItem("token");
+
+      const response = await fetch(`${SERVIDOR}/api/v1/cupons/validar`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ codigo: cupom }),
+      });
+
+      const json = await response.json();
+
+      if (response.ok && json.success) {
+        Alert.alert("Sucesso", `Cupom ${json.data.codigo} aplicado! Desconto de ${json.data.desconto}%.`);
+        
+        if (onAplicarCupom) {
+          onAplicarCupom(json.data.codigo, json.data.desconto);
+        }
+        
+        setCupom("");
+        onClose();
+      } else {
+        Alert.alert("Erro", json.message || "Cupom não encontrado.");
+      }
+    } catch (error) {
+      console.error("Erro ao validar cupom:", error);
+      Alert.alert("Erro", "Não foi possível conectar ao servidor para validar o cupom.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -66,17 +105,23 @@ export default function AdicionarCupomModal({
             placeholderTextColor="#A0A0A0"
             value={cupom}
             onChangeText={setCupom}
-            autoCapitalize="characters"
+            autoCapitalize="none"
           />
 
           {/* Botão Aplicar com Ícone de Tag */}
-          <Pressable style={styles.btnAplicar} onPress={handleAplicar}>
+          <Pressable 
+            style={[styles.btnAplicar, loading && { opacity: 0.7 }]} 
+            onPress={handleAplicar}
+            disabled={loading}
+          >
             <Image
               source={require("@/assets/images/fitbia/prince-tag-bege.png")}
               style={styles.iconeBtnTag}
               resizeMode="contain"
             />
-            <Text style={styles.txtBtnAplicar}>Aplicar cupom</Text>
+            <Text style={styles.txtBtnAplicar}>
+              {loading ? "A validar..." : "Aplicar cupom"}
+            </Text>
           </Pressable>
 
           {/* Divisor */}

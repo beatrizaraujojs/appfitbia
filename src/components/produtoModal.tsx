@@ -9,6 +9,8 @@ import {
   TextInput,
   Alert,
 } from "react-native";
+import { router } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import produtoModalStyle from "../styles/produtoModalStyle";
 
 const SERVIDOR = "http://localhost:8081";
@@ -39,14 +41,12 @@ export default function ProdutoModal({
     }
   }, [visible, produto]);
 
-  // Captura os grupos vindos do Laravel (snake_case)
   const gruposAdicionais =
     produto.grupos_adicionais ||
     produto.gruposAdicionais ||
     produto.grupos ||
     [];
 
-  // Conta quantos itens no TOTAL já foram selecionados em todo o grupo
   const contarSelecionadosNoGrupo = (
     grupo: any,
     adicionaisAtuais: { [key: number]: number },
@@ -150,7 +150,6 @@ export default function ProdutoModal({
     });
   };
 
-  // Cálculo Dinâmico do Total
   let totalAdicionais = 0;
   if (gruposAdicionais.length > 0) {
     gruposAdicionais.forEach((grupo: any) => {
@@ -170,11 +169,41 @@ export default function ProdutoModal({
   const precoBase = Number(
     produto.preco_base_produto || produto.preco_produto || produto.preco || 0,
   );
-  const valorTotal = (precoBase + totalAdicionais) * qtdPrincipal;
+  const valorUnitarioComAdicionais = precoBase + totalAdicionais;
+  const valorTotalItem = valorUnitarioComAdicionais * qtdPrincipal;
 
   const imagemUri = !produto.foto_produto
     ? `${IMAGEM}/produto/sem-imagem.png`
     : `${IMAGEM}/${produto.foto_produto}`;
+
+  const handleConfirmarAdicao = async () => {
+    try {
+      const itemConfigurado = {
+        cartItemId: Date.now().toString(),
+        id: produto.id_produto || produto.id || 1,
+        nome: produto.nome_produto || produto.nome || "Produto",
+        precoUnitario: valorUnitarioComAdicionais,
+        descricao: produto.descricao_produto || produto.descricao || "",
+        foto_produto: produto.foto_produto || "",
+        quantidade: qtdPrincipal,
+        observacao: observacao,
+        valorTotal: valorTotalItem,
+      };
+
+      const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
+      let listaCarrinho = carrinhoSalvo ? JSON.parse(carrinhoSalvo) : [];
+
+      listaCarrinho.push(itemConfigurado);
+
+      await AsyncStorage.setItem("@carrinho_fitbia", JSON.stringify(listaCarrinho));
+      
+      onClose();
+      router.push("/carrinho" as any);
+    } catch (error) {
+      console.error("Erro ao salvar produto:", error);
+      Alert.alert("Erro", "Não foi possível adicionar o produto ao carrinho.");
+    }
+  };
 
   return (
     <Modal
@@ -190,13 +219,11 @@ export default function ProdutoModal({
           <View style={produtoModalStyle.dragHandle} />
 
           <ScrollView showsVerticalScrollIndicator={false}>
-            {/* Foto do Produto */}
             <Image
               source={{ uri: imagemUri }}
               style={produtoModalStyle.imagemProduto}
             />
 
-            {/* Título e Contador Principal */}
             <Text style={produtoModalStyle.nomeProduto}>
               {produto.nome_produto || produto.nome}
             </Text>
@@ -218,16 +245,14 @@ export default function ProdutoModal({
                 </Pressable>
               </View>
               <Text style={produtoModalStyle.precoBase}>
-                R$ {precoBase.toFixed(2).replace(".", ",")}
+                R\$ {precoBase.toFixed(2).replace(".", ",")}
               </Text>
             </View>
 
-            {/* Descrição */}
             <Text style={produtoModalStyle.descricao}>
               {produto.descricao_produto || produto.descricao}
             </Text>
 
-            {/* Renderização Dinâmica de Grupos e Adicionais */}
             {gruposAdicionais.length > 0 && (
               <>
                 {gruposAdicionais.map((grupo: any, indexGrupo: number) => {
@@ -314,7 +339,7 @@ export default function ProdutoModal({
                                   <Text
                                     style={produtoModalStyle.precoAdicional}
                                   >
-                                    + R$ {adPreco.toFixed(2).replace(".", ",")}
+                                    + R\$ {adPreco.toFixed(2).replace(".", ",")}
                                   </Text>
                                 </View>
                               </Pressable>
@@ -378,7 +403,6 @@ export default function ProdutoModal({
               </>
             )}
 
-            {/* Campo de Observações */}
             <Text style={produtoModalStyle.tituloAdicionais}>Observações</Text>
             <TextInput
               style={produtoModalStyle.inputObservacoes}
@@ -391,16 +415,13 @@ export default function ProdutoModal({
               onChangeText={setObservacao}
             />
 
-            {/* Rodapé / Botão */}
             <View style={produtoModalStyle.rodape}>
               <Text style={produtoModalStyle.valorTotal}>
-                R$ {valorTotal.toFixed(2).replace(".", ",")}
+                R\$ {valorTotalItem.toFixed(2).replace(".", ",")}
               </Text>
               <Pressable
                 style={produtoModalStyle.btnAdicionar}
-                onPress={() => {
-                  onClose();
-                }}
+                onPress={handleConfirmarAdicao}
               >
                 <Text style={produtoModalStyle.txtBtnAdicionar}>
                   Adicionar ao carrinho

@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Image,
   ImageBackground,
@@ -10,52 +10,86 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import globalStyle from "@/styles/globalStyle";
 import carrinhoStyle from "@/styles/carrinhoStyle";
 import BottomBar from "@/components/BottomBar";
 import AdicionarCupomModal from "@/components/adicionarCupomModal";
-import ProdutoModal from "@/components/produtoModal"; // 1. Importação do ProdutoModal
+import ProdutoModal from "@/components/produtoModal";
+
+const SERVIDOR = "http://localhost:8081";
 
 export default function CarrinhoScreen() {
-  const [cupom, setCupom] = useState("FITBIA01");
-  const [quantidadeItem, setQuantidadeItem] = useState(2);
+  const [cupom, setCupom] = useState("primeiropedido");
+  const [percentualDesconto, setPercentualDesconto] = useState(5); // 5% vindo do banco
   const [modalCupomVisivel, setModalCupomVisivel] = useState(false);
+  const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
 
-  // 2. Estado para controlar o modal do produto selecionado para edição
   const [produtoModalVisivel, setProdutoModalVisivel] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
 
-  // Exemplo de objeto de produto do item do carrinho
-  const itemCarrinho =
-   {
-    id: 1  ,
-    nome: "Caldo de abóbora",
-    preco: 27.8,
-    descricao:
-      "O caldo de abóbora é uma opção prática, saborosa e nutritiva, ideal para dias mais frios ou para uma refeição leve.",
-    imagem: require("@/assets/images/fotosfitbia/caldo_abobora_frango_desfiado.png"),
+  async function carregarCarrinho() {
+    try {
+      const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
+      if (carrinhoSalvo) {
+        setItensCarrinho(JSON.parse(carrinhoSalvo));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar carrinho:", error);
+    }
+  }
+
+  useEffect(() => {
+    carregarCarrinho();
+  }, []);
+
+  const alterarQuantidadeItem = (cartItemId: string, delta: number) => {
+    const novaLista = itensCarrinho
+      .map((item) => {
+        if (item.cartItemId === cartItemId) {
+          const novaQtd = item.quantidade + delta;
+          if (novaQtd > 0) {
+            return {
+              ...item,
+              quantidade: novaQtd,
+              valorTotal: item.precoUnitario * novaQtd,
+            };
+          }
+        }
+        return item;
+      })
+      .filter((item) => item.quantidade > 0);
+
+    setItensCarrinho(novaLista);
+    AsyncStorage.setItem("@carrinho_fitbia", JSON.stringify(novaLista));
   };
 
+  const limparCarrinho = async () => {
+    setItensCarrinho([]);
+    await AsyncStorage.removeItem("@carrinho_fitbia");
+  };
 
-  
-
-  const aumentarQuantidade = () => setQuantidadeItem((prev) => prev + 1);
-  const diminuirQuantidade = () => {
-    if (quantidadeItem > 1) {
-      setQuantidadeItem((prev) => prev - 1);
+  const handleAplicarCupom = (novoCupom: string, descontoBanco: number) => {
+    setCupom(novoCupom);
+    if (descontoBanco !== undefined) {
+      setPercentualDesconto(descontoBanco);
     }
   };
 
-  const handleAplicarCupom = (novoCupom: string) => {
-    setCupom(novoCupom);
-  };
+  // Cálculos dinâmicos
+  const totalItensValor = itensCarrinho.reduce(
+    (acc, item) => acc + (item.valorTotal || 0),
+    0
+  );
+  const totalQuantidadeItens = itensCarrinho.reduce(
+    (acc, item) => acc + (item.quantidade || 0),
+    0
+  );
 
-  // 3. Função para abrir o modal com o item
-  const handleEditarItem = () => {
-    setProdutoSelecionado(itemCarrinho);
-    setProdutoModalVisivel(true);
-  };
+  // Cálculo correto do desconto baseado na percentagem do banco (ex: 5%)
+  const valorDesconto = cupom ? (totalItensValor * percentualDesconto) / 100 : 0.0;
+  const subtotalValor = Math.max(0, totalItensValor - valorDesconto);
 
   return (
     <View style={globalStyle.container}>
@@ -96,64 +130,88 @@ export default function CarrinhoScreen() {
               {/* Cabeçalho da Lista de Itens */}
               <View style={carrinhoStyle.topSecaoItens}>
                 <Text style={carrinhoStyle.tituloSecao}>Itens adicionados</Text>
-                <Pressable onPress={() => {}}>
+                <Pressable onPress={limparCarrinho}>
                   <Text style={carrinhoStyle.txtLimpar}>Limpar</Text>
                 </Pressable>
               </View>
 
-              {/* Card do Item Adicionado */}
-              <View style={carrinhoStyle.cardItem}>
-                <View style={carrinhoStyle.boxImagemItem}>
-                  <Image
-                    source={itemCarrinho.imagem}
-                    style={carrinhoStyle.imgItem}
-                  />
-                  {/* 4. Ação de clique no ícone de Lápis/Editar */}
-                  <Pressable
-                    style={carrinhoStyle.badgeEditar}
-                    onPress={handleEditarItem}
-                  >
-                    <Image
-                      source={require("@/assets/images/fitbia/editar (1).png")}
-                      style={carrinhoStyle.iconePequeno}
-                      resizeMode="contain"
-                    />
-                  </Pressable>
-                </View>
+              {/* Lista de Itens do Carrinho */}
+              {itensCarrinho.length === 0 ? (
+                <Text
+                  style={{
+                    textAlign: "center",
+                    marginVertical: 20,
+                    color: "#666",
+                  }}
+                >
+                  O seu carrinho está vazio.
+                </Text>
+              ) : (
+                itensCarrinho.map((item) => {
+                  const imagemSource = item.foto_produto
+                    ? { uri: `${SERVIDOR}/fitbia/images/produto/${item.foto_produto}` }
+                    : require("@/assets/images/fotosfitbia/caldo_abobora_frango_desfiado.png");
 
-                <View style={carrinhoStyle.infoItem}>
-                  <Text style={carrinhoStyle.nomeItem}>
-                    {itemCarrinho.nome}
-                  </Text>
-                  <Text style={carrinhoStyle.descItem} numberOfLines={2}>
-                    {itemCarrinho.descricao}
-                  </Text>
-                  <Text style={carrinhoStyle.precoItem}>
-                    R$ {itemCarrinho.preco.toFixed(2).replace(".", ",")}
-                  </Text>
-                </View>
+                  return (
+                    <View
+                      key={item.cartItemId}
+                      style={[carrinhoStyle.cardItem, { marginBottom: 12 }]}
+                    >
+                      <View style={carrinhoStyle.boxImagemItem}>
+                        <Image source={imagemSource} style={carrinhoStyle.imgItem} />
+                      </View>
 
-                {/* Contadores + Lixeira */}
-                <View style={carrinhoStyle.controleQuantidade}>
-                  <Pressable
-                    style={carrinhoStyle.btnQtd}
-                    onPress={aumentarQuantidade}
-                  >
-                    <Text style={carrinhoStyle.txtBtnQtd}>+</Text>
-                  </Pressable>
-                  <Text style={carrinhoStyle.txtQtd}>{quantidadeItem}</Text>
-                  <Pressable
-                    style={carrinhoStyle.btnLixeira}
-                    onPress={diminuirQuantidade}
-                  >
-                    <Image
-                      source={require("@/assets/images/fitbia/lixeira-de-reciclagem.png")}
-                      style={carrinhoStyle.iconeLixeira}
-                      resizeMode="contain"
-                    />
-                  </Pressable>
-                </View>
-              </View>
+                      <View style={carrinhoStyle.infoItem}>
+                        <Text style={carrinhoStyle.nomeItem}>{item.nome}</Text>
+                        <Text style={carrinhoStyle.descItem} numberOfLines={2}>
+                          {item.descricao}
+                        </Text>
+                        {item.observacao ? (
+                          <Text
+                            style={{
+                              fontSize: 11,
+                              color: "#888",
+                              fontStyle: "italic",
+                            }}
+                          >
+                            Obs: {item.observacao}
+                          </Text>
+                        ) : null}
+                        <Text style={carrinhoStyle.precoItem}>
+                          R$ {item.valorTotal.toFixed(2).replace(".", ",")}
+                        </Text>
+                      </View>
+
+                      {/* Contadores + Lixeira */}
+                      <View style={carrinhoStyle.controleQuantidade}>
+                        <Pressable
+                          style={carrinhoStyle.btnQtd}
+                          onPress={() =>
+                            alterarQuantidadeItem(item.cartItemId, 1)
+                          }
+                        >
+                          <Text style={carrinhoStyle.txtBtnQtd}>+</Text>
+                        </Pressable>
+                        <Text style={carrinhoStyle.txtQtd}>
+                          {item.quantidade}
+                        </Text>
+                        <Pressable
+                          style={carrinhoStyle.btnLixeira}
+                          onPress={() =>
+                            alterarQuantidadeItem(item.cartItemId, -1)
+                          }
+                        >
+                          <Image
+                            source={require("@/assets/images/fitbia/lixeira-de-reciclagem.png")}
+                            style={carrinhoStyle.iconeLixeira}
+                            resizeMode="contain"
+                          />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })
+              )}
 
               {/* Link Adicionar Mais Itens */}
               <Pressable
@@ -164,49 +222,6 @@ export default function CarrinhoScreen() {
                   Adicionar mais itens
                 </Text>
               </Pressable>
-
-              {/* Carrossel Peça Também */}
-              <View style={carrinhoStyle.secaoPecaTambem}>
-                <Text style={carrinhoStyle.tituloSecaoPecaTambem}>
-                  Peça também
-                </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={carrinhoStyle.listaPecaTambem}
-                >
-                  <View style={carrinhoStyle.cardSugestao}>
-                    <Image
-                      source={require("@/assets/images/fotosfitbia/agua_sem_gas.png")}
-                      style={carrinhoStyle.imgSugestao}
-                    />
-                    <Text style={carrinhoStyle.precoSugestao}>R$ 5,00</Text>
-                    <Text style={carrinhoStyle.nomeSugestao}>Água mineral</Text>
-                  </View>
-
-                  <View style={carrinhoStyle.cardSugestao}>
-                    <Image
-                      source={require("@/assets/images/fotosfitbia/shake_wheyprotein.png")}
-                      style={carrinhoStyle.imgSugestao}
-                    />
-                    <Text style={carrinhoStyle.precoSugestao}>R$ 25,00</Text>
-                    <Text style={carrinhoStyle.nomeSugestao}>
-                      Shake de Whey Protein
-                    </Text>
-                  </View>
-
-                  <View style={carrinhoStyle.cardSugestao}>
-                    <Image
-                      source={require("@/assets/images/fotosfitbia/coca_cola.png")}
-                      style={carrinhoStyle.imgSugestao}
-                    />
-                    <Text style={carrinhoStyle.precoSugestao}>R$ 6,00</Text>
-                    <Text style={carrinhoStyle.nomeSugestao}>
-                      Coca-Cola Zero Açúcar 400ml
-                    </Text>
-                  </View>
-                </ScrollView>
-              </View>
 
               {/* Campo de Cupom */}
               <View style={carrinhoStyle.containerCupom}>
@@ -247,29 +262,40 @@ export default function CarrinhoScreen() {
 
                 <View style={carrinhoStyle.linhaResumo}>
                   <Text style={carrinhoStyle.labelResumo}>Total dos itens</Text>
-                  <Text style={carrinhoStyle.valorResumo}>R$ 27,80</Text>
+                  <Text style={carrinhoStyle.valorResumo}>
+                    R$ {totalItensValor.toFixed(2).replace(".", ",")}
+                  </Text>
                 </View>
 
                 <View style={carrinhoStyle.linhaResumo}>
-                  <Text style={carrinhoStyle.labelDesconto}>Desconto</Text>
-                  <Text style={carrinhoStyle.valorDesconto}>- R$ 7,00</Text>
+                  <Text style={carrinhoStyle.labelDesconto}>Desconto ({percentualDesconto}%)</Text>
+                  <Text style={carrinhoStyle.valorDesconto}>
+                    R$ {valorDesconto.toFixed(2).replace(".", ",")}
+                  </Text>
                 </View>
 
                 <View style={carrinhoStyle.linhaResumoSubtotal}>
                   <Text style={carrinhoStyle.labelSubtotal}>Subtotal</Text>
-                  <Text style={carrinhoStyle.valorSubtotal}>R$ 30,80</Text>
+                  <Text style={carrinhoStyle.valorSubtotal}>
+                    R$ {subtotalValor.toFixed(2).replace(".", ",")}
+                  </Text>
                 </View>
               </View>
 
               {/* Barra de Checkout */}
               <View style={carrinhoStyle.barCheckout}>
                 <View style={carrinhoStyle.boxPrecoCheckout}>
-                  <Text style={carrinhoStyle.totalCheckout}>R$ 30,80</Text>
-                  <Text style={carrinhoStyle.qtdItensCheckout}> / 1 item</Text>
+                  <Text style={carrinhoStyle.totalCheckout}>
+                    R$ {subtotalValor.toFixed(2).replace(".", ",")}
+                  </Text>
+                  <Text style={carrinhoStyle.qtdItensCheckout}>
+                    {" "}
+                    / {totalQuantidadeItens} item(s)
+                  </Text>
                 </View>
                 <Pressable
                   style={carrinhoStyle.btnContinuar}
-                  onPress={() => router.push("/entrega")} // Adicionado o redirecionamento
+                  onPress={() => router.push("/entrega")}
                 >
                   <Text style={carrinhoStyle.txtBtnContinuar}>Continuar</Text>
                 </Pressable>
@@ -277,14 +303,12 @@ export default function CarrinhoScreen() {
             </View>
           </ScrollView>
 
-          {/* 5. Renderização do Modal de Produto */}
           <ProdutoModal
             visible={produtoModalVisivel}
             onClose={() => setProdutoModalVisivel(false)}
             produto={produtoSelecionado}
           />
 
-          {/* Modal de Cupom */}
           <AdicionarCupomModal
             visible={modalCupomVisivel}
             onClose={() => setModalCupomVisivel(false)}
