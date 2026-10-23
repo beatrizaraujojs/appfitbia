@@ -10,10 +10,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import BottomBar from "@/components/BottomBar";
 import editarSenhaStyle from "@/styles/editarSenhaStyle";
 import globalStyle from "@/styles/globalStyle";
+
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
 
 export default function EditarSenhaScreen() {
   const [senhaAtual, setSenhaAtual] = useState("");
@@ -23,6 +27,69 @@ export default function EditarSenhaScreen() {
   const [esconderSenhaAtual, setEsconderSenhaAtual] = useState(true);
   const [esconderNovaSenha, setEsconderNovaSenha] = useState(true);
   const [esconderConfirmarSenha, setEsconderConfirmarSenha] = useState(true);
+
+  const [carregando, setCarregando] = useState(false);
+  const [mensagem, setMensagem] = useState("");
+
+  async function alterarSenha() {
+    if (!senhaAtual || !novaSenha || !confirmarSenha) {
+      setMensagem("Preencha todos os campos.");
+      return;
+    }
+
+    if (novaSenha.length < 8) {
+      setMensagem("A nova senha deve ter pelo menos 8 caracteres.");
+      return;
+    }
+
+    if (novaSenha !== confirmarSenha) {
+      setMensagem("A confirmação da senha não corresponde à nova senha.");
+      return;
+    }
+
+    setCarregando(true);
+    setMensagem("");
+
+    try {
+      const token = await AsyncStorage.getItem("token");
+      if (!token) {
+        router.replace("/");
+        return;
+      }
+
+      const resposta = await fetch(`${API}/cliente/senha`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          senha_atual: senhaAtual,
+          nova_senha: novaSenha,
+          nova_senha_confirmation: confirmarSenha,
+        }),
+      });
+
+      const json = await resposta.json();
+
+      if (!resposta.ok || !json.success) {
+        setMensagem(json.message || "Erro ao alterar a senha.");
+        return;
+      }
+
+      setSenhaAtual("");
+      setNovaSenha("");
+      setConfirmarSenha("");
+      // Ajustado para o nome correto do ficheiro: configuracoes.tsx
+      router.replace("/configuracoes" as any);
+    } catch (erro) {
+      console.log("Erro ao alterar senha:", erro);
+      setMensagem("Não foi possível conectar ao servidor.");
+    } finally {
+      setCarregando(false);
+    }
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -79,7 +146,6 @@ export default function EditarSenhaScreen() {
                   />
                 </View>
 
-                {/* Ícone Olho */}
                 <Pressable
                   onPress={() => setEsconderSenhaAtual(!esconderSenhaAtual)}
                   style={editarSenhaStyle.btnOlho}
@@ -94,7 +160,6 @@ export default function EditarSenhaScreen() {
                   />
                 </Pressable>
 
-                {/* Badge de Editar */}
                 <Pressable style={editarSenhaStyle.btnEditarBadge}>
                   <Image
                     source={require("@/assets/images/fitbia/editar.png")}
@@ -106,7 +171,7 @@ export default function EditarSenhaScreen() {
               {/* Link Esqueci minha senha */}
               <Pressable
                 style={editarSenhaStyle.btnEsqueciSenha}
-                onPress={() => router.push("/recuperarSenha")}
+                onPress={() => router.push("/recuperarSenha" as any)}
               >
                 <Text style={editarSenhaStyle.txtEsqueciSenha}>
                   Esqueci minha senha
@@ -205,17 +270,27 @@ export default function EditarSenhaScreen() {
                 </Pressable>
               </View>
 
+              {/* Exibição de Mensagens de Erro / Sucesso */}
+              {mensagem ? (
+                <Text style={{ color: "#ff4d4d", textAlign: "center", marginBottom: 15, fontSize: 14, fontWeight: "bold" }}>
+                  {mensagem}
+                </Text>
+              ) : null}
+
               {/* Botão Salvar Senha */}
               <Pressable
                 style={editarSenhaStyle.btnSalvar}
-                onPress={() => router.back()}
+                onPress={alterarSenha}
+                disabled={carregando}
               >
-                <Text style={editarSenhaStyle.txtSalvar}>Salvar senha</Text>
+                <Text style={editarSenhaStyle.txtSalvar}>
+                  {carregando ? "Salvando..." : "Salvar nova senha"}
+                </Text>
               </Pressable>
             </View>
           </ScrollView>
 
-          <BottomBar abaAtiva="config" />
+          <BottomBar />
         </SafeAreaView>
       </ImageBackground>
     </View>

@@ -62,7 +62,6 @@ export default function HomeScreen() {
             }
           }
 
-          // 2. Buscar Produtos e Favoritos em simultâneo
           const [respProdutos, respFavoritos] = await Promise.all([
             fetch(`${API}/produtos`),
             token
@@ -98,7 +97,6 @@ export default function HomeScreen() {
             setQueridinhos(destaques.length > 0 ? destaques : produtosAtivos);
           }
 
-          // 3. Buscar Categorias
           const respCategorias = await fetch(`${API}/categorias`);
           const jsonCategorias = await respCategorias.json();
 
@@ -161,6 +159,15 @@ export default function HomeScreen() {
     setModalVisivel(true);
   };
 
+  const handleBuscar = () => {
+    if (!busca.trim()) return;
+
+    router.push({
+      pathname: "/menu" as any,
+      params: { busca: busca.trim() },
+    });
+  };
+
   return (
     <View style={globalStyle.container}>
       <ImageBackground
@@ -189,16 +196,20 @@ export default function HomeScreen() {
               </View>
 
               <View style={homeStyle.buscarContainer}>
-                <Image
-                  style={homeStyle.iconeBusca}
-                  source={require("@/assets/images/fitbia/lupa.png")}
-                />
+                <Pressable onPress={handleBuscar}>
+                  <Image
+                    style={homeStyle.iconeBusca}
+                    source={require("@/assets/images/fitbia/lupa.png")}
+                  />
+                </Pressable>
                 <TextInput
                   placeholder="Buscar produtos"
                   placeholderTextColor="#A0A0A0"
                   style={homeStyle.textInputBusca}
                   value={busca}
                   onChangeText={setBusca}
+                  returnKeyType="search"
+                  onSubmitEditing={handleBuscar}
                 />
               </View>
 

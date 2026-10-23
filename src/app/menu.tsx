@@ -1,5 +1,5 @@
 import { router, useLocalSearchParams } from "expo-router";
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Image,
   ImageBackground,
@@ -26,7 +26,10 @@ const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 export default function MenuScreen() {
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
-  const [busca, setBusca] = useState("");
+  
+  const [busca, setBusca] = useState(
+    params.busca ? String(params.busca) : ""
+  );
 
   const [categoriaAtiva, setCategoriaAtiva] = useState<
     number | string | "Todos"
@@ -36,7 +39,12 @@ export default function MenuScreen() {
   const [produtosCardapio, setProdutosCardapio] = useState<any[]>([]);
   const [semImagem, setSemImagem] = useState<number[]>([]);
 
-  // Pratos da semana fixos
+  useEffect(() => {
+    if (params.busca) {
+      setBusca(String(params.busca));
+    }
+  }, [params.busca]);
+
   const pratosSemana = [
     {
       id: 1,
@@ -61,7 +69,6 @@ export default function MenuScreen() {
     null,
   );
 
-  // 1. Carregar Categorias ao abrir a tela
   useFocusEffect(
     useCallback(() => {
       async function carregarCategorias() {
@@ -83,7 +90,6 @@ export default function MenuScreen() {
     }, []),
   );
 
-  // 2. Carregar Produtos e Favoritos sempre que a Categoria Ativa mudar ou a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
       async function carregarProdutosComFavoritos() {
@@ -403,7 +409,7 @@ export default function MenuScreen() {
                       marginTop: 20,
                     }}
                   >
-                    Nenhum produto encontrado nesta categoria.
+                    Nenhum produto encontrado.
                   </Text>
                 ) : categoriaAtiva === "Todos" ? (
                   produtosPorCategoria.map((grupo) => (

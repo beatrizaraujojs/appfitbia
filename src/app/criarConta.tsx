@@ -9,22 +9,107 @@ import {
   Image,
   TextInput,
   ScrollView,
+  Alert,
+  ActivityIndicator,
 } from "react-native";
 
-// Estilo global
 import globalStyle from "@/styles/globalStyle";
-
-// Modal de Termos de Uso
 import TermosUsoModal from "@/components/termosUsoModal";
-
-// Estilo exclusivo da tela
 import criarContaStyle from "@/styles/criarContaStyle";
 
+const SERVIDOR = "http://localhost:8081";
+const API = `${SERVIDOR}/api/v1`;
+
 export default function CriarContaScreen() {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [telefone, setTelefone] = useState("");
+  const [senha, setSenha] = useState("");
+  const [confirmarSenha, setConfirmarSenha] = useState("");
+
   const [verSenha, setVerSenha] = useState(false);
   const [verConfirmarSenha, setVerConfirmarSenha] = useState(false);
   const [aceitarTermos, setAceitarTermos] = useState(false);
   const [modalTermosUso, setModalTermosUso] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  async function handleCriarConta() {
+    if (!nome || !email || !telefone || !senha || !confirmarSenha) {
+      Alert.alert("Atenção", "Por favor, preencha todos os campos.");
+      return;
+    }
+
+    if (senha !== confirmarSenha) {
+      Alert.alert("Erro", "As senhas não coincidem.");
+      return;
+    }
+
+    if (!aceitarTermos) {
+      Alert.alert("Termos de Uso", "Você precisa aceitar os termos de uso para continuar.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const payload = {
+        name: nome,
+        email_cliente: email,
+        telefone: telefone,
+        password: senha,
+      };
+
+      const response = await fetch(`${API}/auth/register`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const responseText = await response.text();
+      let json;
+      try {
+        json = JSON.parse(responseText);
+      } catch (e) {
+        console.error("Erro ao analisar JSON:", responseText);
+      }
+
+      // Tratamento de erros do Laravel (ex: 422 Unprocessable Content)
+      if (!response.ok) {
+        let mensagemErro = "Não foi possível criar a conta. Verifique os dados.";
+
+        if (json?.errors) {
+          // Captura a mensagem específica do campo que falhou na validação (ex: e-mail já em uso)
+          const primeiroCampo = Object.keys(json.errors)[0];
+          if (primeiroCampo && json.errors[primeiroCampo][0]) {
+            mensagemErro = json.errors[primeiroCampo][0];
+          }
+        } else if (json?.message) {
+          mensagemErro = json.message;
+        }
+
+        Alert.alert("Atenção", mensagemErro);
+        return;
+      }
+
+      // Resposta com Sucesso
+      if (json?.success || json?.token) {
+        Alert.alert("Sucesso!", "Conta criada com sucesso. Faça login para continuar.", [
+          {
+            text: "Ir para Login",
+            onPress: () => router.replace("/login"),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Erro de conexão ao criar conta:", error);
+      Alert.alert("Erro de Conexão", "Não foi possível conectar ao servidor.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <View style={globalStyle.container}>
@@ -58,7 +143,6 @@ export default function CriarContaScreen() {
               Cadastre-se para fazer seus pedidos
             </Text>
 
-            {/* Formulário criação de conta */}
             <View style={criarContaStyle.form}>
               {/* Nome */}
               <Text style={criarContaStyle.tituloInput}>Nome</Text>
@@ -73,10 +157,12 @@ export default function CriarContaScreen() {
                   keyboardType="default"
                   autoCapitalize="words"
                   style={criarContaStyle.textInput}
+                  value={nome}
+                  onChangeText={setNome}
                 />
               </View>
 
-              {/* E-mail */}
+              {/* Email */}
               <Text style={criarContaStyle.tituloInput}>Email</Text>
               <View style={criarContaStyle.input}>
                 <Image
@@ -89,6 +175,8 @@ export default function CriarContaScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   style={criarContaStyle.textInput}
+                  value={email}
+                  onChangeText={setEmail}
                 />
               </View>
 
@@ -105,6 +193,8 @@ export default function CriarContaScreen() {
                   keyboardType="phone-pad"
                   autoCapitalize="none"
                   style={criarContaStyle.textInput}
+                  value={telefone}
+                  onChangeText={setTelefone}
                 />
               </View>
 
@@ -120,6 +210,8 @@ export default function CriarContaScreen() {
                   placeholderTextColor="#888888"
                   style={criarContaStyle.textInput}
                   secureTextEntry={!verSenha}
+                  value={senha}
+                  onChangeText={setSenha}
                 />
 
                 <Pressable
@@ -149,6 +241,8 @@ export default function CriarContaScreen() {
                   placeholderTextColor="#888888"
                   style={criarContaStyle.textInput}
                   secureTextEntry={!verConfirmarSenha}
+                  value={confirmarSenha}
+                  onChangeText={setConfirmarSenha}
                 />
 
                 <Pressable
@@ -198,12 +292,18 @@ export default function CriarContaScreen() {
                 style={({ pressed }) => [
                   criarContaStyle.btnCriar,
                   pressed && criarContaStyle.btnCriarPressed,
+                  loading && { opacity: 0.7 },
                 ]}
-                onPress={() => router.replace("/login")}
+                onPress={handleCriarConta}
+                disabled={loading}
               >
-                <Text style={criarContaStyle.textoCriarConta}>
-                  Criar conta
-                </Text>
+                {loading ? (
+                  <ActivityIndicator color="#FFF" />
+                ) : (
+                  <Text style={criarContaStyle.textoCriarConta}>
+                    Criar conta
+                  </Text>
+                )}
               </Pressable>
             </View>
           </ScrollView>
