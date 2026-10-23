@@ -42,7 +42,6 @@ export default function AdicionarCupomModal({
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({ codigo: cupom }),
       });
@@ -50,20 +49,27 @@ export default function AdicionarCupomModal({
       const json = await response.json();
 
       if (response.ok && json.success) {
-        Alert.alert("Sucesso", `Cupom ${json.data.codigo} aplicado! Desconto de ${json.data.desconto}%.`);
-        
+        Alert.alert(
+          "Sucesso",
+          `Cupom ${json.data.codigo} aplicado! Desconto de ${json.data.desconto}%.`,
+        );
+
         if (onAplicarCupom) {
           onAplicarCupom(json.data.codigo, json.data.desconto);
         }
-        
+
         setCupom("");
         onClose();
       } else {
-        Alert.alert("Erro", json.message || "Cupom não encontrado.");
+        // Exibe a mensagem enviada pelo controlador do Laravel (ex: "Cupom inválido ou expirado.")
+        Alert.alert(
+          "Cupom Indisponível",
+          json.message || "Este cupom não existe ou está inativo.",
+        );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao validar cupom:", error);
-      Alert.alert("Erro", "Não foi possível conectar ao servidor para validar o cupom.");
+      Alert.alert("Erro", "Não foi possível validar o cupom. Tente novamente.");
     } finally {
       setLoading(false);
     }
@@ -109,8 +115,8 @@ export default function AdicionarCupomModal({
           />
 
           {/* Botão Aplicar com Ícone de Tag */}
-          <Pressable 
-            style={[styles.btnAplicar, loading && { opacity: 0.7 }]} 
+          <Pressable
+            style={[styles.btnAplicar, loading && { opacity: 0.7 }]}
             onPress={handleAplicar}
             disabled={loading}
           >
