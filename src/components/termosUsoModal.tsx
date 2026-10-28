@@ -155,7 +155,7 @@ export default function TermosUsoModal({ visible, onClose }: TermosUsoProps) {
             </Text>
           </ScrollView>
           <Image
-            source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+            source={require("@/assets/images/fitbia/logo-fitbia.svg")}
             style={termosUsoStyle.logo}
           />
         </View>

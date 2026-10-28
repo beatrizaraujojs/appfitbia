@@ -305,7 +305,7 @@ export default function MenuScreen() {
                 </Pressable>
                 <Text style={menuStyle.tituloHeader}>Menu</Text>
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={menuStyle.logoHeader}
                   resizeMode="contain"
                 />

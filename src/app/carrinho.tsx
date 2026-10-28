@@ -21,8 +21,8 @@ import ProdutoModal from "@/components/produtoModal";
 const SERVIDOR = "http://localhost:8081";
 
 export default function CarrinhoScreen() {
-  const [cupom, setCupom] = useState("primeiropedido");
-  const [percentualDesconto, setPercentualDesconto] = useState(5);
+  const [cupom, setCupom] = useState("");
+  const [percentualDesconto, setPercentualDesconto] = useState(0);
   const [modalCupomVisivel, setModalCupomVisivel] = useState(false);
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
 
@@ -33,7 +33,7 @@ export default function CarrinhoScreen() {
   useFocusEffect(
     useCallback(() => {
       carregarCarrinho();
-    }, [])
+    }, []),
   );
 
   async function carregarCarrinho() {
@@ -83,14 +83,16 @@ export default function CarrinhoScreen() {
   // Cálculos dinâmicos
   const totalItensValor = itensCarrinho.reduce(
     (acc, item) => acc + (item.valorTotal || 0),
-    0
+    0,
   );
   const totalQuantidadeItens = itensCarrinho.reduce(
     (acc, item) => acc + (item.quantidade || 0),
-    0
+    0,
   );
 
-  const valorDesconto = cupom ? (totalItensValor * percentualDesconto) / 100 : 0.0;
+  const valorDesconto = cupom
+    ? (totalItensValor * percentualDesconto) / 100
+    : 0.0;
   const subtotalValor = Math.max(0, totalItensValor - valorDesconto);
 
   return (
@@ -123,7 +125,7 @@ export default function CarrinhoScreen() {
                 <Text style={carrinhoStyle.tituloHeader}>Carrinho</Text>
 
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={carrinhoStyle.logoHeader}
                   resizeMode="contain"
                 />
@@ -151,7 +153,9 @@ export default function CarrinhoScreen() {
               ) : (
                 itensCarrinho.map((item) => {
                   const imagemSource = item.foto_produto
-                    ? { uri: `${SERVIDOR}/fitbia/images/produto/${item.foto_produto}` }
+                    ? {
+                        uri: `${SERVIDOR}/fitbia/images/produto/${item.foto_produto}`,
+                      }
                     : require("@/assets/images/fotosfitbia/caldo_abobora_frango_desfiado.png");
 
                   return (
@@ -160,7 +164,10 @@ export default function CarrinhoScreen() {
                       style={[carrinhoStyle.cardItem, { marginBottom: 12 }]}
                     >
                       <View style={carrinhoStyle.boxImagemItem}>
-                        <Image source={imagemSource} style={carrinhoStyle.imgItem} />
+                        <Image
+                          source={imagemSource}
+                          style={carrinhoStyle.imgItem}
+                        />
                       </View>
 
                       <View style={carrinhoStyle.infoItem}>
@@ -299,7 +306,18 @@ export default function CarrinhoScreen() {
                 </View>
                 <Pressable
                   style={carrinhoStyle.btnContinuar}
-                  onPress={() => router.push("/entrega" as any)}
+                  onPress={async () => {
+                    await AsyncStorage.setItem(
+                      "@resumo_carrinho",
+                      JSON.stringify({
+                        subtotal: subtotalValor,
+                        descontoPercentual: percentualDesconto,
+                        valorDesconto: valorDesconto,
+                        totalItens: totalItensValor,
+                      }),
+                    );
+                    router.push("/entrega" as any);
+                  }}
                 >
                   <Text style={carrinhoStyle.txtBtnContinuar}>Continuar</Text>
                 </Pressable>

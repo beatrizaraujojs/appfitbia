@@ -207,7 +207,7 @@ export default function EditarContaScreen() {
                     Editar perfil
                   </Text>
                   <Image
-                    source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                    source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                     style={editarContaStyle.logoHeader}
                     resizeMode="contain"
                   />
@@ -238,7 +238,7 @@ export default function EditarContaScreen() {
               {/* Campo Email */}
               <View style={editarContaStyle.cardInput}>
                 <Image
-                  source={require("@/assets/images/fitbia/e-mail.png")}
+                  source={require("@/assets/images/fitbia/email-verde.png")}
                   style={editarContaStyle.fieldIcone}
                 />
                 <View style={editarContaStyle.infoBox}>

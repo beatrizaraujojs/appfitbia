@@ -27,7 +27,7 @@ export default function RecuperarSenhaScreen() {
           <View style={recuperarSenhaStyle.conteudo}>
             {/* Logo Centralizada */}
             <Image
-              source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+              source={require("@/assets/images/fitbia/logo-fitbia.svg")}
               style={recuperarSenhaStyle.logo}
               resizeMode="contain"
             />
@@ -43,7 +43,7 @@ export default function RecuperarSenhaScreen() {
               <Text style={recuperarSenhaStyle.label}>Email:</Text>
               <View style={recuperarSenhaStyle.inputContainer}>
                 <Image
-                  source={require("@/assets/images/fitbia/e-mail.png")}
+                  source={require("@/assets/images/fitbia/email-verde.png")}
                   style={recuperarSenhaStyle.iconeEmail}
                 />
                 <TextInput

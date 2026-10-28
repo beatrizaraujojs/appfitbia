@@ -127,7 +127,7 @@ export default function ConfiguracoesScreen() {
                   Configurações
                 </Text>
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={configuracoesStyle.logoHeader}
                   resizeMode="contain"
                 />
@@ -225,7 +225,7 @@ export default function ConfiguracoesScreen() {
                   onPress={() => router.replace("/pedidoEmAndamento")}
                 >
                   <Image
-                    source={require("@/assets/images/fitbia/pedido (2).png")}
+                    source={require("@/assets/images/fitbia/pedido-certo-branco.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
                   <View style={configuracoesStyle.opcaoTextoBox}>
@@ -275,7 +275,7 @@ export default function ConfiguracoesScreen() {
                   onPress={() => setModalSairVisivel(true)}
                 >
                   <Image
-                    source={require("@/assets/images/fitbia/sair (1).png")}
+                    source={require("@/assets/images/fitbia/sair-verde.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
                   <View style={configuracoesStyle.opcaoTextoBox}>

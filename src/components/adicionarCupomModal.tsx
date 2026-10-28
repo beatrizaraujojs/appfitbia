@@ -137,7 +137,7 @@ export default function AdicionarCupomModal({
           <View style={styles.cardInfo}>
             <View style={styles.circuloInfoIcone}>
               <Image
-                source={require("@/assets/images/fitbia/gift (1).png")}
+                source={require("@/assets/images/fitbia/presente.png")}
                 style={styles.iconePresente}
                 resizeMode="contain"
               />

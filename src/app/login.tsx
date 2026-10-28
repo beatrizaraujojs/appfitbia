@@ -79,7 +79,7 @@ export default function LoginScreen() {
           bounces={true}
         >
           <Image
-            source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+            source={require("@/assets/images/fitbia/logo-fitbia.svg")}
             style={loginStyle.logo}
             resizeMode="contain"
           />
@@ -96,7 +96,7 @@ export default function LoginScreen() {
 
             <View style={loginStyle.input}>
               <Image
-                source={require("@/assets/images/fitbia/o-email (1).png")}
+                source={require("@/assets/images/fitbia/email-verde.png")}
                 style={loginStyle.icone}
               />
               <TextInput
@@ -116,7 +116,7 @@ export default function LoginScreen() {
             <View style={loginStyle.input}>
               <View style={loginStyle.inputContent}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha (1).png")}
+                  source={require("@/assets/images/fitbia/senha-verde.png")}
                   style={loginStyle.icone}
                 />
                 <TextInput
@@ -136,8 +136,8 @@ export default function LoginScreen() {
                 <Image
                   source={
                     verSenha
-                      ? require("@/assets/images/fitbia/olho.png")
-                      : require("@/assets/images/fitbia/olho-vermelho (1).png")
+                      ? require("@/assets/images/fitbia/olho-verde-aberto.png")
+                      : require("@/assets/images/fitbia/olho-verde-fechado.png")
                   }
                   style={loginStyle.mostrarSenha}
                 />

@@ -189,7 +189,7 @@ export default function HomeScreen() {
                   </Text>
                 </View>
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={homeStyle.logoHeader}
                   resizeMode="contain"
                 />

@@ -21,9 +21,11 @@ const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function EntregaScreen() {
-  const [opcaoSelecionada, setOpcaoSelecionada] = useState<"entrega" | "retirada">("entrega");
+  const [opcaoSelecionada, setOpcaoSelecionada] = useState<
+    "entrega" | "retirada"
+  >("entrega");
   const [modalEnderecoVisivel, setModalEnderecoVisivel] = useState(false);
-  
+
   const [enderecoAtual, setEnderecoAtual] = useState<any | null>(null);
   const [loadingEndereco, setLoadingEndereco] = useState(true);
 
@@ -34,23 +36,35 @@ export default function EntregaScreen() {
     useCallback(() => {
       carregarEnderecoAtivo();
       carregarCarrinhoDoStorage();
-    }, [])
+    }, []),
   );
 
   async function carregarCarrinhoDoStorage() {
     try {
+      // Tenta ler o resumo detalhado guardado pelo carrinho
+      const resumoSalvo = await AsyncStorage.getItem("@resumo_carrinho");
+      if (resumoSalvo) {
+        const resumo = JSON.parse(resumoSalvo);
+        setSubtotalCarrinho(resumo.subtotal || 0);
+      }
+
       const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
       if (carrinhoSalvo) {
         const itens = JSON.parse(carrinhoSalvo);
-        const subtotalBruto = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
-        const quantidade = itens.reduce((acc: number, item: any) => acc + (item.quantidade || 0), 0);
-        
-        // Aplica o desconto padrão de 5%
-        const desconto = (subtotalBruto * 5) / 100;
-        const subtotalComDesconto = Math.max(0, subtotalBruto - desconto);
-
-        setSubtotalCarrinho(subtotalComDesconto);
+        const quantidade = itens.reduce(
+          (acc: number, item: any) => acc + (item.quantidade || 0),
+          0,
+        );
         setQtdItensCarrinho(quantidade);
+
+        // Fallback caso o resumo ainda não exista
+        if (!resumoSalvo) {
+          const subtotalBruto = itens.reduce(
+            (acc: number, item: any) => acc + (item.valorTotal || 0),
+            0,
+          );
+          setSubtotalCarrinho(subtotalBruto);
+        }
       }
     } catch (error) {
       console.error("Erro ao carregar carrinho na entrega:", error);
@@ -82,7 +96,10 @@ export default function EntregaScreen() {
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         const primeiroEndereco = json.data[0];
         setEnderecoAtual(primeiroEndereco);
-        await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(primeiroEndereco));
+        await AsyncStorage.setItem(
+          "enderecoSelecionado",
+          JSON.stringify(primeiroEndereco),
+        );
       }
     } catch (error) {
       console.error("Erro ao carregar endereço principal:", error);
@@ -95,7 +112,10 @@ export default function EntregaScreen() {
     setEnderecoAtual(endereco);
     setModalEnderecoVisivel(false);
     try {
-      await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(endereco));
+      await AsyncStorage.setItem(
+        "enderecoSelecionado",
+        JSON.stringify(endereco),
+      );
     } catch (error) {
       console.error("Erro ao salvar endereço selecionado:", error);
     }
@@ -109,7 +129,7 @@ export default function EntregaScreen() {
     ? `${enderecoAtual.bairro_endereco ? enderecoAtual.bairro_endereco + " - " : ""}${enderecoAtual.cidade_endereco || "São Paulo"}`
     : "Clique em trocar para adicionar";
 
-  const taxaEntrega = opcaoSelecionada === "entrega" ? 10.00 : 0.00;
+  const taxaEntrega = opcaoSelecionada === "entrega" ? 10.0 : 0.0;
   const valorFinalCheckout = subtotalCarrinho + taxaEntrega;
 
   return (
@@ -142,7 +162,7 @@ export default function EntregaScreen() {
                 <Text style={entregaStyle.tituloHeader}>Endereço</Text>
 
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={entregaStyle.logoHeader}
                   resizeMode="contain"
                 />
@@ -172,9 +192,7 @@ export default function EntregaScreen() {
                     <ActivityIndicator size="small" color="#4CAF50" />
                   ) : (
                     <View>
-                      <Text style={entregaStyle.ruaTexto}>
-                        {ruaFormatada}
-                      </Text>
+                      <Text style={entregaStyle.ruaTexto}>{ruaFormatada}</Text>
                       <Text style={entregaStyle.bairroTexto}>
                         {bairroFormatado}
                       </Text>
@@ -200,7 +218,9 @@ export default function EntregaScreen() {
                   ]}
                   onPress={() => setOpcaoSelecionada("entrega")}
                 >
-                  <Text style={entregaStyle.txtOpcao}>Entregar no endereço</Text>
+                  <Text style={entregaStyle.txtOpcao}>
+                    Entregar no endereço
+                  </Text>
                   <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Text style={entregaStyle.valorEntrega}>R$ 10,00</Text>
                     <View

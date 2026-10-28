@@ -50,7 +50,7 @@ export default function DuvidasFrequentesScreen() {
                   Tudo o que você precisa saber
                 </Text>
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={duvidasFrequentesStyle.logoTopo}
                   resizeMode="contain"
                 />
