@@ -1,4 +1,5 @@
-import { router, useLocalSearchParams } from "expo-router";
+
+import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useState, useCallback, useRef, useEffect } from "react";
 import {
   Image,
@@ -11,7 +12,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect } from "expo-router";
 
 import globalStyle from "@/styles/globalStyle";
 import menuStyle from "@/styles/menuStyle";
@@ -23,10 +23,37 @@ const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
+// Identificar o dia da semana pelo nome do produto
+function identificarDia(nome: string) {
+  const texto = nome
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+
+  const dias = [
+    "domingo",
+    "segunda",
+    "terca",
+    "quarta",
+    "quinta",
+    "sexta",
+    "sabado",
+  ];
+
+  return dias.findIndex((dia) => texto.includes(dia));
+}
+
+// Formatar preço em reais
+function formatarPreco(valor: any) {
+  return `R$ ${Number(valor || 0)
+    .toFixed(2)
+    .replace(".", ",")}`;
+}
+
 export default function MenuScreen() {
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
-  
+
   const [busca, setBusca] = useState(
     params.busca ? String(params.busca) : ""
   );
@@ -39,36 +66,26 @@ export default function MenuScreen() {
   const [produtosCardapio, setProdutosCardapio] = useState<any[]>([]);
   const [semImagem, setSemImagem] = useState<number[]>([]);
 
+  const [modalVisivel, setModalVisivel] = useState(false);
+  const [produtoSelecionado, setProdutoSelecionado] =
+    useState<Produto | null>(null);
+
+  // Dia atual, atualizado ao entrar na tela
+  const [hoje, setHoje] = useState(new Date().getDay());
+
+  useFocusEffect(
+    useCallback(() => {
+      setHoje(new Date().getDay());
+    }, [])
+  );
+
   useEffect(() => {
     if (params.busca) {
       setBusca(String(params.busca));
     }
   }, [params.busca]);
 
-  const pratosSemana = [
-    {
-      id: 1,
-      imagem: require("@/assets/images/fotosfitbia/salmao_batatas_assadas_brocolis.png"),
-    },
-    {
-      id: 2,
-      imagem: require("@/assets/images/fotosfitbia/salada_fitbia_power.png"),
-    },
-    {
-      id: 3,
-      imagem: require("@/assets/images/fotosfitbia/panqueca_carne_moida_arroz_legumes.png"),
-    },
-    { id: 4, imagem: require("@/assets/images/fotosfitbia/quinta_feira.png") },
-    { id: 5, imagem: require("@/assets/images/fotosfitbia/quarta_feira.png") },
-    { id: 6, imagem: require("@/assets/images/fotosfitbia/segunda_feira.png") },
-    { id: 7, imagem: require("@/assets/images/fotosfitbia/sabado_1.png") },
-  ];
-
-  const [modalVisivel, setModalVisivel] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<Produto | null>(
-    null,
-  );
-
+  // Carregar categorias
   useFocusEffect(
     useCallback(() => {
       async function carregarCategorias() {
@@ -87,34 +104,46 @@ export default function MenuScreen() {
       }
 
       carregarCategorias();
-    }, []),
+    }, [])
   );
 
+  // Carregar produtos e favoritos
   useFocusEffect(
     useCallback(() => {
       async function carregarProdutosComFavoritos() {
         try {
           const token = await AsyncStorage.getItem("token");
-          const url = `${API}/produtos`;
 
           const [respProdutos, respFavoritos] = await Promise.all([
-            fetch(url),
+            fetch(`${API}/produtos`),
             token
               ? fetch(`${API}/favoritos`, {
-                  headers: { Authorization: `Bearer ${token}` },
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
                 })
               : Promise.resolve(null),
           ]);
 
           const json = await respProdutos.json();
-          let idsFavoritos = [];
+          let idsFavoritos: number[] = [];
 
           if (respFavoritos && respFavoritos.ok) {
             const jsonFavoritos = await respFavoritos.json();
-            idsFavoritos = jsonFavoritos.map((fav: any) => fav.id);
+
+            const listaFavoritos = Array.isArray(jsonFavoritos)
+              ? jsonFavoritos
+              : Array.isArray(jsonFavoritos.data)
+              ? jsonFavoritos.data
+              : [];
+
+            idsFavoritos = listaFavoritos.map((fav: any) =>
+              Number(fav.id_produto_fk || fav.id_produto || fav.id)
+            );
           }
 
-          let listaProdutos = [];
+          let listaProdutos: any[] = [];
+
           if (json && json.success && Array.isArray(json.data)) {
             listaProdutos = json.data;
           } else if (Array.isArray(json)) {
@@ -123,9 +152,10 @@ export default function MenuScreen() {
 
           const produtosMapeados = listaProdutos.map((produto: any) => {
             const prodId = produto.id_produto || produto.id;
+
             return {
               ...produto,
-              favorito: idsFavoritos.includes(prodId),
+              favorito: idsFavoritos.includes(Number(prodId)),
             };
           });
 
@@ -143,9 +173,10 @@ export default function MenuScreen() {
       }
 
       carregarProdutosComFavoritos();
-    }, [categoriaAtiva]),
+    }, [categoriaAtiva])
   );
 
+  // Favoritar ou desfavoritar
   const toggleFavorito = async (idItem: number) => {
     try {
       const token = await AsyncStorage.getItem("token");
@@ -156,7 +187,9 @@ export default function MenuScreen() {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ id_produto_fk: idItem }),
+        body: JSON.stringify({
+          id_produto_fk: idItem,
+        }),
       });
 
       if (response.ok) {
@@ -164,8 +197,8 @@ export default function MenuScreen() {
           prev.map((item) =>
             item.id_produto === idItem || item.id === idItem
               ? { ...item, favorito: !item.favorito }
-              : item,
-          ),
+              : item
+          )
         );
       }
     } catch (error) {
@@ -173,29 +206,56 @@ export default function MenuScreen() {
     }
   };
 
+  // Abrir modal do produto
   const abrirModal = (produto: any) => {
     setProdutoSelecionado(produto);
     setModalVisivel(true);
   };
 
+  // Pratos da semana: categoria Pratos do dia (ID 8)
+  // Ordenação começa pelo dia atual
+  const pratosSemana = produtosCardapio
+    .filter(
+      (produto) =>
+        Number(produto.id_categoria_fk) === 8 &&
+        produto.status_produto === "ATIVO"
+    )
+    .sort((a, b) => {
+      const diaA = identificarDia(a.nome_produto || a.nome || "");
+      const diaB = identificarDia(b.nome_produto || b.nome || "");
+
+      const ordemA = diaA === -1 ? 7 : (diaA - hoje + 7) % 7;
+      const ordemB = diaB === -1 ? 7 : (diaB - hoje + 7) % 7;
+
+      return ordemA - ordemB;
+    });
+
+  // Filtrar produtos por busca e categoria
   const produtosFiltrados = produtosCardapio.filter((produto) => {
     const nomeProd = produto.nome_produto || produto.nome || "";
-    const matchBusca = nomeProd.toLowerCase().includes(busca.toLowerCase());
+
+    const matchBusca = nomeProd
+      .toLowerCase()
+      .includes(busca.toLowerCase());
 
     if (categoriaAtiva === "Todos") {
       return matchBusca;
     }
 
     const prodCatId =
+      produto.id_categoria_fk ||
       produto.id_categoria ||
       produto.categoria_id ||
       produto.pivot?.id_categoria ||
       produto.categoria?.id_categoria;
 
-    const matchCategoria = String(prodCatId) === String(categoriaAtiva);
-    return matchBusca && matchCategoria;
+    return (
+      matchBusca &&
+      String(prodCatId) === String(categoriaAtiva)
+    );
   });
 
+  // Agrupar produtos por categoria
   const produtosPorCategoria = categorias
     .map((cat) => {
       const catId = cat.id_categoria || cat.id;
@@ -203,10 +263,12 @@ export default function MenuScreen() {
 
       const itensDaCat = produtosFiltrados.filter((p) => {
         const pCatId =
+          p.id_categoria_fk ||
           p.id_categoria ||
           p.categoria_id ||
           p.pivot?.id_categoria ||
           p.categoria?.id_categoria;
+
         return String(pCatId) === String(catId);
       });
 
@@ -222,20 +284,22 @@ export default function MenuScreen() {
     categoriaAtiva === "Todos"
       ? null
       : categorias.find(
-          (c) => String(c.id_categoria || c.id) === String(categoriaAtiva),
+          (c) =>
+            String(c.id_categoria || c.id) ===
+            String(categoriaAtiva)
         )?.nome_categoria || "Categoria";
 
+  // Renderizar cards dos produtos
   const renderizarCard = (produto: any) => {
     const prodId = produto.id_produto || produto.id;
+
     const imagemUri =
       semImagem.includes(prodId) || !produto.foto_produto
-        ? `${IMAGEM}/produto/sem-imagem.png`
+        ? `${IMAGEM}/sem-imagem.png`
         : `${IMAGEM}/${produto.foto_produto}`;
 
-    const precoBase = produto.preco_base_produto || produto.preco || 0;
-    const valorFormatado = `R$ ${Number(precoBase)
-      .toFixed(2)
-      .replace(".", ",")}`;
+    const precoBase =
+      produto.preco_base_produto ?? produto.preco ?? 0;
 
     return (
       <View style={menuStyle.cardHorizontal} key={prodId}>
@@ -243,11 +307,16 @@ export default function MenuScreen() {
           <Text style={menuStyle.nomeProduto} numberOfLines={1}>
             {produto.nome_produto || produto.nome}
           </Text>
+
           <Text style={menuStyle.descProduto} numberOfLines={2}>
             {produto.descricao_produto || produto.descricao}
           </Text>
+
           <View style={menuStyle.linhaPreco}>
-            <Text style={menuStyle.precoProduto}>{valorFormatado}</Text>
+            <Text style={menuStyle.precoProduto}>
+              {formatarPreco(precoBase)}
+            </Text>
+
             <Pressable
               style={menuStyle.btnFavorito}
               onPress={() => toggleFavorito(prodId)}
@@ -263,14 +332,18 @@ export default function MenuScreen() {
             </Pressable>
           </View>
         </View>
+
         <View style={menuStyle.boxImagemProduto}>
           <Image
             source={{ uri: imagemUri }}
             style={menuStyle.imgProdutoHorizontal}
             onError={() => {
-              setSemImagem((imgs) => [...imgs, prodId]);
+              setSemImagem((imgs) =>
+                imgs.includes(prodId) ? imgs : [...imgs, prodId]
+              );
             }}
           />
+
           <Pressable
             style={menuStyle.btnAddHorizontal}
             onPress={() => abrirModal(produto)}
@@ -296,6 +369,7 @@ export default function MenuScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={menuStyle.conteudo}>
+              {/* Header */}
               <View style={menuStyle.header}>
                 <Pressable
                   onPress={() => router.back()}
@@ -303,7 +377,9 @@ export default function MenuScreen() {
                 >
                   <Text style={menuStyle.arrowBack}>←</Text>
                 </Pressable>
+
                 <Text style={menuStyle.tituloHeader}>Menu</Text>
+
                 <Image
                   source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
                   style={menuStyle.logoHeader}
@@ -311,18 +387,22 @@ export default function MenuScreen() {
                 />
               </View>
 
+              {/* Títulos */}
               <View style={menuStyle.titulosContainer}>
                 <Text style={menuStyle.subtitulo}>Nossa comida</Text>
+
                 <Text style={menuStyle.tituloPrincipal}>
                   Especial para você
                 </Text>
               </View>
 
+              {/* Busca */}
               <View style={menuStyle.buscarContainer}>
                 <Image
                   style={menuStyle.iconeBusca}
                   source={require("@/assets/images/fitbia/lupa.png")}
                 />
+
                 <TextInput
                   placeholder="Buscar produtos"
                   placeholderTextColor="#A0A0A0"
@@ -332,6 +412,7 @@ export default function MenuScreen() {
                 />
               </View>
 
+              {/* Categorias */}
               <View style={menuStyle.abasCentralizadas}>
                 <ScrollView
                   horizontal
@@ -345,11 +426,13 @@ export default function MenuScreen() {
                     <Text
                       style={[
                         menuStyle.abaTexto,
-                        categoriaAtiva === "Todos" && menuStyle.abaTextoAtiva,
+                        categoriaAtiva === "Todos" &&
+                          menuStyle.abaTextoAtiva,
                       ]}
                     >
                       Todos
                     </Text>
+
                     {categoriaAtiva === "Todos" && (
                       <View style={menuStyle.linhaAtiva} />
                     )}
@@ -358,7 +441,9 @@ export default function MenuScreen() {
                   {categorias.map((cat) => {
                     const catId = cat.id_categoria || cat.id;
                     const catNome = cat.nome_categoria || cat.nome;
-                    const isActive = String(categoriaAtiva) === String(catId);
+
+                    const isActive =
+                      String(categoriaAtiva) === String(catId);
 
                     return (
                       <Pressable
@@ -374,32 +459,107 @@ export default function MenuScreen() {
                         >
                           {catNome}
                         </Text>
-                        {isActive && <View style={menuStyle.linhaAtiva} />}
+
+                        {isActive && (
+                          <View style={menuStyle.linhaAtiva} />
+                        )}
                       </Pressable>
                     );
                   })}
                 </ScrollView>
               </View>
 
+              {/* Pratos da semana */}
               <View style={menuStyle.secaoPratosSemana}>
-                <Text style={menuStyle.tituloSecao}>Pratos da semana</Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={menuStyle.listaPratosSemana}
-                >
-                  {pratosSemana.map((prato) => (
-                    <Image
-                      key={prato.id}
-                      source={prato.imagem}
-                      style={menuStyle.imgPratoSemana}
-                    />
-                  ))}
-                </ScrollView>
+                <Text style={menuStyle.tituloSecao}>
+                  Pratos da semana
+                </Text>
+
+                {pratosSemana.length > 0 ? (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={menuStyle.listaPratosSemana}
+                  >
+                    {pratosSemana.map((produto) => {
+                      const prodId =
+                        produto.id_produto || produto.id;
+
+                      const imagemUri =
+                        semImagem.includes(prodId) ||
+                        !produto.foto_produto
+                          ? `${IMAGEM}/sem-imagem.png`
+                          : `${IMAGEM}/${produto.foto_produto}`;
+
+                      const preco =
+                        produto.preco_base_produto ??
+                        produto.preco ??
+                        0;
+
+                      return (
+                        <Pressable
+                          key={prodId}
+                          onPress={() => abrirModal(produto)}
+                          style={{
+                            width: 120,
+                            marginRight: 10,
+                          }}
+                        >
+                          <Image
+                            source={{ uri: imagemUri }}
+                            style={menuStyle.imgPratoSemana}
+                            resizeMode="cover"
+                            onError={() => {
+                              setSemImagem((anterior) =>
+                                anterior.includes(prodId)
+                                  ? anterior
+                                  : [...anterior, prodId]
+                              );
+                            }}
+                          />
+
+                          <Text
+                            numberOfLines={2}
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "600",
+                              color: "#2C3E2D",
+                              marginTop: 7,
+                              minHeight: 34,
+                            }}
+                          >
+                            {produto.nome_produto || produto.nome}
+                          </Text>
+
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              fontWeight: "bold",
+                              color: "#916F4A",
+                              marginTop: 3,
+                            }}
+                          >
+                            {formatarPreco(preco)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                ) : (
+                  <Text
+                    style={{
+                      color: "#666",
+                      marginTop: 10,
+                    }}
+                  >
+                    Nenhum prato da semana disponível.
+                  </Text>
+                )}
               </View>
 
               <View style={menuStyle.divisor} />
 
+              {/* Lista de produtos */}
               <View style={menuStyle.listaProdutos}>
                 {produtosFiltrados.length === 0 ? (
                   <Text
@@ -413,7 +573,10 @@ export default function MenuScreen() {
                   </Text>
                 ) : categoriaAtiva === "Todos" ? (
                   produtosPorCategoria.map((grupo) => (
-                    <View key={grupo.id} style={{ marginBottom: 20 }}>
+                    <View
+                      key={grupo.id}
+                      style={{ marginBottom: 20 }}
+                    >
                       <Text
                         style={{
                           fontSize: 20,
@@ -425,7 +588,10 @@ export default function MenuScreen() {
                       >
                         {grupo.nome}
                       </Text>
-                      {grupo.produtos.map((produto) => renderizarCard(produto))}
+
+                      {grupo.produtos.map((produto) =>
+                        renderizarCard(produto)
+                      )}
                     </View>
                   ))
                 ) : (
@@ -443,8 +609,9 @@ export default function MenuScreen() {
                         {nomeCategoriaAtual}
                       </Text>
                     )}
+
                     {produtosFiltrados.map((produto) =>
-                      renderizarCard(produto),
+                      renderizarCard(produto)
                     )}
                   </View>
                 )}
@@ -456,6 +623,7 @@ export default function MenuScreen() {
         </SafeAreaView>
       </ImageBackground>
 
+      {/* Modal do produto */}
       {modalVisivel && produtoSelecionado && (
         <ProdutoModal
           visible={modalVisivel}
