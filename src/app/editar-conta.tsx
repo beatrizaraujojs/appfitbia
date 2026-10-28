@@ -30,7 +30,7 @@ export default function EditarContaScreen() {
   const [telefone, setTelefone] = useState("");
   const [cpf, setCpf] = useState("");
   const [fotoCliente, setFotoCliente] = useState<string | null>(null);
-  
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
@@ -82,7 +82,7 @@ export default function EditarContaScreen() {
   // 2. Selecionar a foto da galeria
   async function handleSelecionarFoto() {
     const permissao = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    
+
     if (!permissao.granted) {
       Alert.alert("Permissão negada", "Precisamos de permissão para aceder à galeria.");
       return;
@@ -126,6 +126,9 @@ export default function EditarContaScreen() {
 
       const json = await resposta.json();
 
+      console.log("STATUS:", resposta.status);
+      console.log("RESPOSTA DA API:", JSON.stringify(json));
+
       if (!resposta.ok) {
         const mensagemErro = json.message || (json.errors ? JSON.stringify(json.errors) : "Verifique os campos preenchidos.");
         Alert.alert("Erro de validação", mensagemErro);
@@ -142,10 +145,10 @@ export default function EditarContaScreen() {
     }
   }
 
-  const uriFotoPerfil = fotoCliente 
-    ? (fotoCliente.startsWith("http") || fotoCliente.startsWith("data:") 
-        ? fotoCliente 
-        : `${IMAGEM_BASE}/${fotoCliente}`)
+  const uriFotoPerfil = fotoCliente
+    ? (fotoCliente.startsWith("http") || fotoCliente.startsWith("data:")
+      ? fotoCliente
+      : `${IMAGEM_BASE}/${fotoCliente}`)
     : null;
 
   if (carregando) {
@@ -190,7 +193,7 @@ export default function EditarContaScreen() {
                       }
                       style={editarContaStyle.avatarIcone}
                     />
-                    <Pressable 
+                    <Pressable
                       style={editarContaStyle.btnFotoBadge}
                       onPress={handleSelecionarFoto}
                     >
