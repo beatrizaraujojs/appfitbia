@@ -1,9 +1,11 @@
+
+import React, { useState, useCallback } from "react";
 import { router, useFocusEffect } from "expo-router";
-import { useState, useCallback } from "react";
 import {
   ActivityIndicator,
   Image,
   ImageBackground,
+  Platform,
   Pressable,
   ScrollView,
   Text,
@@ -11,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import WebView from "react-native-webview";
 
 import globalStyle from "@/styles/globalStyle";
 import entregaStyle from "@/styles/entregaStyle";
@@ -21,9 +24,11 @@ const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function EntregaScreen() {
-  const [opcaoSelecionada, setOpcaoSelecionada] = useState<"entrega" | "retirada">("entrega");
+  const [opcaoSelecionada, setOpcaoSelecionada] =
+    useState<"entrega" | "retirada">("entrega");
+
   const [modalEnderecoVisivel, setModalEnderecoVisivel] = useState(false);
-  
+
   const [enderecoAtual, setEnderecoAtual] = useState<any | null>(null);
   const [loadingEndereco, setLoadingEndereco] = useState(true);
 
@@ -40,12 +45,20 @@ export default function EntregaScreen() {
   async function carregarCarrinhoDoStorage() {
     try {
       const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
+
       if (carrinhoSalvo) {
         const itens = JSON.parse(carrinhoSalvo);
-        const subtotalBruto = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
-        const quantidade = itens.reduce((acc: number, item: any) => acc + (item.quantidade || 0), 0);
-        
-        // Aplica o desconto padrão de 5%
+
+        const subtotalBruto = itens.reduce(
+          (acc: number, item: any) => acc + (item.valorTotal || 0),
+          0
+        );
+
+        const quantidade = itens.reduce(
+          (acc: number, item: any) => acc + (item.quantidade || 0),
+          0
+        );
+
         const desconto = (subtotalBruto * 5) / 100;
         const subtotalComDesconto = Math.max(0, subtotalBruto - desconto);
 
@@ -60,13 +73,14 @@ export default function EntregaScreen() {
   async function carregarEnderecoAtivo() {
     try {
       setLoadingEndereco(true);
+
       const token = await AsyncStorage.getItem("token");
       if (!token) return;
 
       const enderecoSalvo = await AsyncStorage.getItem("enderecoSelecionado");
+
       if (enderecoSalvo) {
         setEnderecoAtual(JSON.parse(enderecoSalvo));
-        setLoadingEndereco(false);
         return;
       }
 
@@ -81,8 +95,15 @@ export default function EntregaScreen() {
 
       if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         const primeiroEndereco = json.data[0];
+
         setEnderecoAtual(primeiroEndereco);
-        await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(primeiroEndereco));
+
+        await AsyncStorage.setItem(
+          "enderecoSelecionado",
+          JSON.stringify(primeiroEndereco)
+        );
+      } else {
+        setEnderecoAtual(null);
       }
     } catch (error) {
       console.error("Erro ao carregar endereço principal:", error);
@@ -94,22 +115,52 @@ export default function EntregaScreen() {
   async function selecionarNovoEndereco(endereco: any) {
     setEnderecoAtual(endereco);
     setModalEnderecoVisivel(false);
+
     try {
-      await AsyncStorage.setItem("enderecoSelecionado", JSON.stringify(endereco));
+      await AsyncStorage.setItem(
+        "enderecoSelecionado",
+        JSON.stringify(endereco)
+      );
     } catch (error) {
       console.error("Erro ao salvar endereço selecionado:", error);
     }
   }
 
+  // Monta o endereço completo para pesquisar no Google Maps
+  const enderecoCompleto = enderecoAtual
+    ? [
+        enderecoAtual.rua_endereco,
+        enderecoAtual.numero_endereco,
+        enderecoAtual.bairro_endereco,
+        enderecoAtual.cidade_endereco || "São Paulo",
+        "Brasil",
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : "";
+
+  // Atualiza a URL sempre que o endereço mudar
+  const urlMapa = enderecoCompleto
+    ? `https://maps.google.com/maps?q=${encodeURIComponent(
+        enderecoCompleto
+      )}&z=16&output=embed`
+    : "";
+
   const ruaFormatada = enderecoAtual
-    ? `${enderecoAtual.rua_endereco}, ${enderecoAtual.numero_endereco || "S/N"}`
+    ? `${enderecoAtual.rua_endereco}, ${
+        enderecoAtual.numero_endereco || "S/N"
+      }`
     : "Nenhum endereço cadastrado";
 
   const bairroFormatado = enderecoAtual
-    ? `${enderecoAtual.bairro_endereco ? enderecoAtual.bairro_endereco + " - " : ""}${enderecoAtual.cidade_endereco || "São Paulo"}`
+    ? `${
+        enderecoAtual.bairro_endereco
+          ? enderecoAtual.bairro_endereco + " - "
+          : ""
+      }${enderecoAtual.cidade_endereco || "São Paulo"}`
     : "Clique em trocar para adicionar";
 
-  const taxaEntrega = opcaoSelecionada === "entrega" ? 10.00 : 0.00;
+  const taxaEntrega = opcaoSelecionada === "entrega" ? 10.0 : 0.0;
   const valorFinalCheckout = subtotalCarrinho + taxaEntrega;
 
   return (
@@ -149,15 +200,62 @@ export default function EntregaScreen() {
               </View>
 
               {/* Seção Entrega ou Retirada */}
-              <Text style={entregaStyle.tituloSecao}>Entrega ou retirada</Text>
+              <Text style={entregaStyle.tituloSecao}>
+                Entrega ou retirada
+              </Text>
 
-              {/* Mapa */}
-              <View style={entregaStyle.boxMapa}>
-                <Image
-                  source={require("@/assets/images/fitbia/mapa-exemplo.png")}
-                  style={entregaStyle.mapaImage}
-                  resizeMode="cover"
-                />
+              {/* Mapa dinâmico */}
+              <View style={[entregaStyle.boxMapa, { overflow: "hidden" }]}>
+                {loadingEndereco ? (
+                  <ActivityIndicator
+                    size="large"
+                    color="#916F4A"
+                    style={{ flex: 1 }}
+                  />
+                ) : enderecoAtual && urlMapa ? (
+                  Platform.OS === "web" ? (
+                    React.createElement("iframe" as any, {
+                      key: urlMapa,
+                      src: urlMapa,
+                      title: "Mapa do endereço selecionado",
+                      style: {
+                        width: "100%",
+                        height: "100%",
+                        border: 0,
+                      },
+                      loading: "lazy",
+                      referrerPolicy: "no-referrer-when-downgrade",
+                    })
+                  ) : (
+                    <WebView
+                      key={urlMapa}
+                      source={{ uri: urlMapa }}
+                      style={{ flex: 1, width: "100%" }}
+                      javaScriptEnabled
+                      domStorageEnabled
+                      startInLoadingState
+                      renderLoading={() => (
+                        <ActivityIndicator
+                          size="large"
+                          color="#916F4A"
+                          style={{ flex: 1 }}
+                        />
+                      )}
+                    />
+                  )
+                ) : (
+                  <View
+                    style={{
+                      flex: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#666" }}>
+                      Selecione um endereço para visualizar o mapa.
+                    </Text>
+                  </View>
+                )}
               </View>
 
               {/* Endereço Atual */}
@@ -168,13 +266,15 @@ export default function EntregaScreen() {
                     style={entregaStyle.iconePin}
                     resizeMode="contain"
                   />
+
                   {loadingEndereco ? (
-                    <ActivityIndicator size="small" color="#4CAF50" />
+                    <ActivityIndicator size="small" color="#916F4A" />
                   ) : (
                     <View>
                       <Text style={entregaStyle.ruaTexto}>
                         {ruaFormatada}
                       </Text>
+
                       <Text style={entregaStyle.bairroTexto}>
                         {bairroFormatado}
                       </Text>
@@ -188,10 +288,12 @@ export default function EntregaScreen() {
               </View>
 
               {/* Opções de Entrega */}
-              <Text style={entregaStyle.tituloSecao}>Opções de entrega</Text>
+              <Text style={entregaStyle.tituloSecao}>
+                Opções de entrega
+              </Text>
 
               <View style={entregaStyle.opcoesContainer}>
-                {/* Opção 1: Entregar no endereço */}
+                {/* Entregar no endereço */}
                 <Pressable
                   style={[
                     entregaStyle.cardOpcao,
@@ -200,9 +302,20 @@ export default function EntregaScreen() {
                   ]}
                   onPress={() => setOpcaoSelecionada("entrega")}
                 >
-                  <Text style={entregaStyle.txtOpcao}>Entregar no endereço</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center" }}>
-                    <Text style={entregaStyle.valorEntrega}>R$ 10,00</Text>
+                  <Text style={entregaStyle.txtOpcao}>
+                    Entregar no endereço
+                  </Text>
+
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={entregaStyle.valorEntrega}>
+                      R$ 10,00
+                    </Text>
+
                     <View
                       style={[
                         entregaStyle.radioOuter,
@@ -217,7 +330,7 @@ export default function EntregaScreen() {
                   </View>
                 </Pressable>
 
-                {/* Opção 2: Retirada na loja */}
+                {/* Retirada na loja */}
                 <Pressable
                   style={[
                     entregaStyle.cardOpcao,
@@ -226,7 +339,10 @@ export default function EntregaScreen() {
                   ]}
                   onPress={() => setOpcaoSelecionada("retirada")}
                 >
-                  <Text style={entregaStyle.txtOpcao}>Retirada na loja</Text>
+                  <Text style={entregaStyle.txtOpcao}>
+                    Retirada na loja
+                  </Text>
+
                   <View
                     style={[
                       entregaStyle.radioOuter,
@@ -241,22 +357,25 @@ export default function EntregaScreen() {
                 </Pressable>
               </View>
 
-              {/* Barra de Rodapé com valor e Continuar */}
+              {/* Barra de Checkout */}
               <View style={entregaStyle.barCheckout}>
                 <View style={entregaStyle.boxPrecoCheckout}>
                   <Text style={entregaStyle.totalCheckout}>
                     R$ {valorFinalCheckout.toFixed(2).replace(".", ",")}
                   </Text>
+
                   <Text style={entregaStyle.qtdItensCheckout}>
-                    {" "}
-                    / {qtdItensCarrinho} item(ns)
+                    {" "} / {qtdItensCarrinho} item(ns)
                   </Text>
                 </View>
+
                 <Pressable
                   style={entregaStyle.btnContinuar}
                   onPress={() => router.push("/pagamento")}
                 >
-                  <Text style={entregaStyle.txtBtnContinuar}>Continuar</Text>
+                  <Text style={entregaStyle.txtBtnContinuar}>
+                    Continuar
+                  </Text>
                 </Pressable>
               </View>
             </View>
