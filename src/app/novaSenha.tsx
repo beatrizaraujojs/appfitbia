@@ -28,7 +28,7 @@ export default function NovaSenhaScreen() {
           <View style={novaSenhaStyle.conteudo}>
             {/* Logo Centralizada */}
             <Image
-              source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+              source={require("@/assets/images/fitbia/logo-fitbia.svg")}
               style={novaSenhaStyle.logo}
               resizeMode="contain"
             />
@@ -42,7 +42,7 @@ export default function NovaSenhaScreen() {
               <Text style={novaSenhaStyle.label}>Nova senha:</Text>
               <View style={novaSenhaStyle.inputContainer}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha.png")}
+                  source={require("@/assets/images/fitbia/senha-marrom.png")}
                   style={novaSenhaStyle.iconeCadeado}
                 />
                 <TextInput
@@ -61,7 +61,7 @@ export default function NovaSenhaScreen() {
               <Text style={novaSenhaStyle.label}>Confirmar:</Text>
               <View style={novaSenhaStyle.inputContainer}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha.png")}
+                  source={require("@/assets/images/fitbia/senha-marrom.png")}
                   style={novaSenhaStyle.iconeCadeado}
                 />
                 <TextInput

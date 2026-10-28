@@ -49,7 +49,7 @@ export default function TermosUsoSobreScreen() {
               <View style={termosdeUsoSobrestyle.cabecalhoCard}>
                 <Text style={termosdeUsoSobrestyle.titulo}>TERMOS DE USO</Text>
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={termosdeUsoSobrestyle.logoTopo}
                   resizeMode="contain"
                 />

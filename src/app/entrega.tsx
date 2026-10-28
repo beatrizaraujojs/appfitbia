@@ -42,40 +42,60 @@ export default function EntregaScreen() {
     }, [])
   );
 
+  // Carregar valores do carrinho
   async function carregarCarrinhoDoStorage() {
     try {
+      const resumoSalvo = await AsyncStorage.getItem("@resumo_carrinho");
+
+      if (resumoSalvo) {
+        const resumo = JSON.parse(resumoSalvo);
+        setSubtotalCarrinho(Number(resumo.subtotal) || 0);
+      }
+
       const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
 
       if (carrinhoSalvo) {
         const itens = JSON.parse(carrinhoSalvo);
-
-        const subtotalBruto = itens.reduce(
-          (acc: number, item: any) => acc + (item.valorTotal || 0),
-          0
-        );
 
         const quantidade = itens.reduce(
           (acc: number, item: any) => acc + (item.quantidade || 0),
           0
         );
 
-        const desconto = (subtotalBruto * 5) / 100;
-        const subtotalComDesconto = Math.max(0, subtotalBruto - desconto);
-
-        setSubtotalCarrinho(subtotalComDesconto);
         setQtdItensCarrinho(quantidade);
+
+        // Caso o resumo não exista, calcular pelos produtos
+        if (!resumoSalvo) {
+          const subtotalBruto = itens.reduce(
+            (acc: number, item: any) => acc + (item.valorTotal || 0),
+            0
+          );
+
+          setSubtotalCarrinho(subtotalBruto);
+        }
+      } else {
+        setQtdItensCarrinho(0);
+
+        if (!resumoSalvo) {
+          setSubtotalCarrinho(0);
+        }
       }
     } catch (error) {
       console.error("Erro ao carregar carrinho na entrega:", error);
     }
   }
 
+  // Carregar endereço selecionado
   async function carregarEnderecoAtivo() {
     try {
       setLoadingEndereco(true);
 
       const token = await AsyncStorage.getItem("token");
-      if (!token) return;
+
+      if (!token) {
+        setEnderecoAtual(null);
+        return;
+      }
 
       const enderecoSalvo = await AsyncStorage.getItem("enderecoSelecionado");
 
@@ -112,6 +132,7 @@ export default function EntregaScreen() {
     }
   }
 
+  // Trocar endereço
   async function selecionarNovoEndereco(endereco: any) {
     setEnderecoAtual(endereco);
     setModalEnderecoVisivel(false);
@@ -126,7 +147,7 @@ export default function EntregaScreen() {
     }
   }
 
-  // Monta o endereço completo para pesquisar no Google Maps
+  // Endereço completo para o Google Maps
   const enderecoCompleto = enderecoAtual
     ? [
         enderecoAtual.rua_endereco,
@@ -139,7 +160,7 @@ export default function EntregaScreen() {
         .join(", ")
     : "";
 
-  // Atualiza a URL sempre que o endereço mudar
+  // URL dinâmica do mapa
   const urlMapa = enderecoCompleto
     ? `https://maps.google.com/maps?q=${encodeURIComponent(
         enderecoCompleto
@@ -193,13 +214,13 @@ export default function EntregaScreen() {
                 <Text style={entregaStyle.tituloHeader}>Endereço</Text>
 
                 <Image
-                  source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                  source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={entregaStyle.logoHeader}
                   resizeMode="contain"
                 />
               </View>
 
-              {/* Seção Entrega ou Retirada */}
+              {/* Entrega ou retirada */}
               <Text style={entregaStyle.tituloSecao}>
                 Entrega ou retirada
               </Text>
@@ -251,14 +272,14 @@ export default function EntregaScreen() {
                       justifyContent: "center",
                     }}
                   >
-                    <Text style={{ color: "#666" }}>
+                    <Text style={{ color: "#666", textAlign: "center" }}>
                       Selecione um endereço para visualizar o mapa.
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* Endereço Atual */}
+              {/* Endereço atual */}
               <View style={entregaStyle.cardEndereco}>
                 <View style={entregaStyle.infoEndereco}>
                   <Image
@@ -287,7 +308,7 @@ export default function EntregaScreen() {
                 </Pressable>
               </View>
 
-              {/* Opções de Entrega */}
+              {/* Opções de entrega */}
               <Text style={entregaStyle.tituloSecao}>
                 Opções de entrega
               </Text>
@@ -357,7 +378,7 @@ export default function EntregaScreen() {
                 </Pressable>
               </View>
 
-              {/* Barra de Checkout */}
+              {/* Checkout */}
               <View style={entregaStyle.barCheckout}>
                 <View style={entregaStyle.boxPrecoCheckout}>
                   <Text style={entregaStyle.totalCheckout}>
@@ -381,7 +402,7 @@ export default function EntregaScreen() {
             </View>
           </ScrollView>
 
-          {/* Modal de Troca de Endereço */}
+          {/* Modal de troca de endereço */}
           <TrocaDeEnderecoModal
             visible={modalEnderecoVisivel}
             onClose={() => setModalEnderecoVisivel(false)}

@@ -33,7 +33,7 @@ export default function RedefinirSenhaScreen() {
               
               {/* Logo */}
               <Image
-                source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                 style={redefinirSenhaStyle.logo}
                 resizeMode="contain"
               />
@@ -52,7 +52,7 @@ export default function RedefinirSenhaScreen() {
                 <View style={redefinirSenhaStyle.inputContainer}>
                   <Image
                     style={redefinirSenhaStyle.icone}
-                    source={require("@/assets/images/fitbia/senha.png")}
+                    source={require("@/assets/images/fitbia/senha-marrom.png")}
                   />
                   <TextInput
                     placeholder="Informe sua nova senha"
@@ -70,8 +70,8 @@ export default function RedefinirSenhaScreen() {
                       style={redefinirSenhaStyle.mostrarSenha}
                       source={
                         verNovaSenha
-                          ? require("@/assets/images/fitbia/olho-vermelho (1).png")
-                          : require("@/assets/images/fitbia/olho.png")
+                          ? require("@/assets/images/fitbia/olho-verde-fechado.png")
+                          : require("@/assets/images/fitbia/olho-verde-aberto.png")
                       }
                     />
                   </Pressable>
@@ -82,7 +82,7 @@ export default function RedefinirSenhaScreen() {
                 <View style={redefinirSenhaStyle.inputContainer}>
                   <Image
                     style={redefinirSenhaStyle.icone}
-                    source={require("@/assets/images/fitbia/senha.png")}
+                    source={require("@/assets/images/fitbia/senha-marrom.png")}
                   />
                   <TextInput
                     placeholder="Confirme sua nova senha"
@@ -100,8 +100,8 @@ export default function RedefinirSenhaScreen() {
                       style={redefinirSenhaStyle.mostrarSenha}
                       source={
                         verConfirmarSenha
-                          ? require("@/assets/images/fitbia/olho-vermelho (1).png")
-                          : require("@/assets/images/fitbia/olho.png")
+                          ? require("@/assets/images/fitbia/olho-verde-fechado.png")
+                          : require("@/assets/images/fitbia/olho-verde-aberto.png")
                       }
                     />
                   </Pressable>

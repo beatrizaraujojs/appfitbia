@@ -33,7 +33,7 @@ export default function EsqueciSenha() {
 
               {/* Logo */}
               <Image
-                source={require('@/assets/images/fitbia/FITBIA LOGO (1).svg')}
+                source={require('@/assets/images/fitbia/logo-fitbia.svg')}
                 style={esqueciSenhaStyle.logo}
                 resizeMode="contain"
               />
@@ -58,7 +58,7 @@ export default function EsqueciSenha() {
 
                 <View style={esqueciSenhaStyle.inputContainer}>
                   <Image
-                    source={require('@/assets/images/fitbia/o-email (1).png')}
+                    source={require('@/assets/images/fitbia/email-verde.png')}
                     style={esqueciSenhaStyle.icone}
                     resizeMode="contain"
                   />

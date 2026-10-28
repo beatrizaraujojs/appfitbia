@@ -41,14 +41,9 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "53cfc78d-69e4-483c-b05a-260e6b91c21a"
+        "projectId": "586727b7-4a9d-41b5-a4b0-d1b87baa327c"
       }
     },
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/53cfc78d-69e4-483c-b05a-260e6b91c21a"
-    }
+    "owner": "marsilho"
   }
 }

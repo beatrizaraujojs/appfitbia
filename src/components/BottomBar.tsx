@@ -48,7 +48,7 @@ export default function BottomBar({ abaAtiva }: BottomBarProps) {
         onPress={() => router.replace("/menu")}
       >
         <Image
-          source={require("@/assets/images/fitbia/pedido3.png")}
+          source={require("@/assets/images/fitbia/pedido-cinza-menu.png")}
           style={styles.navIcone}
         />
         <Text

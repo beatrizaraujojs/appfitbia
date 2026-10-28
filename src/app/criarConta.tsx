@@ -134,7 +134,7 @@ export default function CriarContaScreen() {
             showsVerticalScrollIndicator={false}
           >
             <Image
-              source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+              source={require("@/assets/images/fitbia/logo-fitbia.svg")}
               style={criarContaStyle.logo}
             />
 
@@ -148,7 +148,7 @@ export default function CriarContaScreen() {
               <Text style={criarContaStyle.tituloInput}>Nome</Text>
               <View style={criarContaStyle.input}>
                 <Image
-                  source={require("@/assets/images/fitbia/perfil.png")}
+                  source={require("@/assets/images/fitbia/perfil-verde.png")}
                   style={criarContaStyle.icone}
                 />
                 <TextInput
@@ -166,7 +166,7 @@ export default function CriarContaScreen() {
               <Text style={criarContaStyle.tituloInput}>Email</Text>
               <View style={criarContaStyle.input}>
                 <Image
-                  source={require("@/assets/images/fitbia/o-email (1).png")}
+                  source={require("@/assets/images/fitbia/email-verde.png")}
                   style={criarContaStyle.icone}
                 />
                 <TextInput
@@ -184,7 +184,7 @@ export default function CriarContaScreen() {
               <Text style={criarContaStyle.tituloInput}>Telefone</Text>
               <View style={criarContaStyle.input}>
                 <Image
-                  source={require("@/assets/images/fitbia/chamada-telefonica (1).png")}
+                  source={require("@/assets/images/fitbia/chamada-telefonica-verde.png")}
                   style={criarContaStyle.icone}
                 />
                 <TextInput
@@ -202,7 +202,7 @@ export default function CriarContaScreen() {
               <Text style={criarContaStyle.tituloInput}>Senha</Text>
               <View style={criarContaStyle.input}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha (1).png")}
+                  source={require("@/assets/images/fitbia/senha-verde.png")}
                   style={criarContaStyle.icone}
                 />
                 <TextInput
@@ -221,8 +221,8 @@ export default function CriarContaScreen() {
                   <Image
                     source={
                       verSenha
-                        ? require("@/assets/images/fitbia/olho.png")
-                        : require("@/assets/images/fitbia/olho-vermelho (1).png")
+                        ? require("@/assets/images/fitbia/olho-verde-aberto.png")
+                        : require("@/assets/images/fitbia/olho-verde-fechado.png")
                     }
                     style={criarContaStyle.mostrarSenha}
                   />
@@ -233,7 +233,7 @@ export default function CriarContaScreen() {
               <Text style={criarContaStyle.tituloInput}>Confirmar senha</Text>
               <View style={criarContaStyle.input}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha (1).png")}
+                  source={require("@/assets/images/fitbia/senha-verde.png")}
                   style={criarContaStyle.icone}
                 />
                 <TextInput
@@ -252,8 +252,8 @@ export default function CriarContaScreen() {
                   <Image
                     source={
                       verConfirmarSenha
-                        ? require("@/assets/images/fitbia/olho.png")
-                        : require("@/assets/images/fitbia/olho-vermelho (1).png")
+                        ? require("@/assets/images/fitbia/olho-verde-aberto.png")
+                        : require("@/assets/images/fitbia/olho-verde-fechado.png")
                     }
                     style={criarContaStyle.mostrarSenha}
                   />

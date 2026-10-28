@@ -52,7 +52,7 @@ export default function SobreScreen() {
                     sobre do aplicativo
                   </Text>
                   <Image
-                    source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                    source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                     style={sobreStyle.logoHeader}
                     resizeMode="contain"
                   />

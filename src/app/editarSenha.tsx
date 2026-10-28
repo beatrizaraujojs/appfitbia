@@ -121,7 +121,7 @@ export default function EditarSenhaScreen() {
                     Alterar senha
                   </Text>
                   <Image
-                    source={require("@/assets/images/fitbia/FITBIA LOGO (1).svg")}
+                    source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                     style={editarSenhaStyle.logoHeader}
                     resizeMode="contain"
                   />
@@ -131,7 +131,7 @@ export default function EditarSenhaScreen() {
               {/* Campo Senha Atual */}
               <View style={editarSenhaStyle.cardInput}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha.png")}
+                  source={require("@/assets/images/fitbia/senha-marrom.png")}
                   style={editarSenhaStyle.fieldIcone}
                 />
                 <View style={editarSenhaStyle.infoBox}>
@@ -153,8 +153,8 @@ export default function EditarSenhaScreen() {
                   <Image
                     source={
                       esconderSenhaAtual
-                        ? require("@/assets/images/fitbia/olho-vermelho.png")
-                        : require("@/assets/images/fitbia/olho.png")
+                        ? require("@/assets/images/fitbia/olho-verde-fechado.png")
+                        : require("@/assets/images/fitbia/olho-verde-aberto.png")
                     }
                     style={editarSenhaStyle.iconeOlho}
                   />
@@ -191,7 +191,7 @@ export default function EditarSenhaScreen() {
               {/* Campo Nova Senha */}
               <View style={editarSenhaStyle.cardInput}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha.png")}
+                  source={require("@/assets/images/fitbia/senha-marrom.png")}
                   style={editarSenhaStyle.fieldIcone}
                 />
                 <View style={editarSenhaStyle.infoBox}>
@@ -213,8 +213,8 @@ export default function EditarSenhaScreen() {
                   <Image
                     source={
                       esconderNovaSenha
-                        ? require("@/assets/images/fitbia/olho-vermelho.png")
-                        : require("@/assets/images/fitbia/olho.png")
+                        ? require("@/assets/images/fitbia/olho-verde-fechado.png")
+                        : require("@/assets/images/fitbia/olho-verde-aberto.png")
                     }
                     style={editarSenhaStyle.iconeOlho}
                   />
@@ -231,7 +231,7 @@ export default function EditarSenhaScreen() {
               {/* Campo Confirmar Senha */}
               <View style={editarSenhaStyle.cardInput}>
                 <Image
-                  source={require("@/assets/images/fitbia/senha.png")}
+                  source={require("@/assets/images/fitbia/senha-marrom.png")}
                   style={editarSenhaStyle.fieldIcone}
                 />
                 <View style={editarSenhaStyle.infoBox}>
@@ -255,8 +255,8 @@ export default function EditarSenhaScreen() {
                   <Image
                     source={
                       esconderConfirmarSenha
-                        ? require("@/assets/images/fitbia/olho-vermelho.png")
-                        : require("@/assets/images/fitbia/olho.png")
+                        ? require("@/assets/images/fitbia/olho-verde-fechado.png")
+                        : require("@/assets/images/fitbia/olho-verde-aberto.png")
                     }
                     style={editarSenhaStyle.iconeOlho}
                   />

@@ -39,13 +39,13 @@ export default function PreloaderScreen() {
   }, []);
 
   return (
-    <Pressable 
-      style={preloaderStyle.container} 
+    <Pressable
+      style={preloaderStyle.container}
       onPress={() => router.replace("/login")}
     >
       <SafeAreaView style={preloaderStyle.areaConteudo}>
         <Animated.Image
-          source={require("@/assets/images/fitbia/FITBIA LOGO-preloader.svg")}
+          source={require("@/assets/images/fitbia/logo-preloader.svg")}
           style={[
             preloaderStyle.logo,
             {
