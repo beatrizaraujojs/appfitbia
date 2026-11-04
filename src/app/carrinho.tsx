@@ -29,11 +29,12 @@ export default function CarrinhoScreen() {
   const [produtoModalVisivel, setProdutoModalVisivel] = useState(false);
   const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
 
-  // Recarrega o carrinho sempre que o ecrã ganha foco
+  // Recarrega o carrinho e cupons guardados sempre que o ecrã ganha foco
   useFocusEffect(
     useCallback(() => {
       carregarCarrinho();
-    }, []),
+      carregarCupomSalvo();
+    }, [])
   );
 
   async function carregarCarrinho() {
@@ -44,6 +45,19 @@ export default function CarrinhoScreen() {
       }
     } catch (error) {
       console.error("Erro ao carregar carrinho:", error);
+    }
+  }
+
+  async function carregarCupomSalvo() {
+    try {
+      const cupomSalvo = await AsyncStorage.getItem("@cupom_aplicado_fitbia");
+      if (cupomSalvo) {
+        const parsed = JSON.parse(cupomSalvo);
+        setCupom(parsed.codigo || "");
+        setPercentualDesconto(Number(parsed.porcentagem || 0));
+      }
+    } catch (error) {
+      console.error("Erro ao carregar cupom salvo:", error);
     }
   }
 
@@ -70,24 +84,42 @@ export default function CarrinhoScreen() {
 
   const limparCarrinho = async () => {
     setItensCarrinho([]);
+    setCupom("");
+    setPercentualDesconto(0);
     await AsyncStorage.removeItem("@carrinho_fitbia");
+    await AsyncStorage.removeItem("@cupom_aplicado_fitbia");
   };
 
-  const handleAplicarCupom = (novoCupom: string, descontoBanco: number) => {
+  const handleAplicarCupom = async (novoCupom: string, descontoBanco: number) => {
     setCupom(novoCupom);
+    let percentual = 0;
     if (descontoBanco !== undefined) {
       setPercentualDesconto(descontoBanco);
+      percentual = descontoBanco;
+    }
+
+    // Guarda o cupom e a respetiva percentagem no AsyncStorage
+    try {
+      await AsyncStorage.setItem(
+        "@cupom_aplicado_fitbia",
+        JSON.stringify({
+          codigo: novoCupom,
+          porcentagem: percentual,
+        })
+      );
+    } catch (error) {
+      console.error("Erro ao guardar cupom:", error);
     }
   };
 
   // Cálculos dinâmicos
   const totalItensValor = itensCarrinho.reduce(
     (acc, item) => acc + (item.valorTotal || 0),
-    0,
+    0
   );
   const totalQuantidadeItens = itensCarrinho.reduce(
     (acc, item) => acc + (item.quantidade || 0),
-    0,
+    0
   );
 
   const valorDesconto = cupom
@@ -314,6 +346,7 @@ export default function CarrinhoScreen() {
                         descontoPercentual: percentualDesconto,
                         valorDesconto: valorDesconto,
                         totalItens: totalItensValor,
+                        cupom: cupom,
                       }),
                     );
                     router.push("/entrega" as any);

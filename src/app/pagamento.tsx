@@ -38,13 +38,13 @@ export default function Pagamento() {
   const [editandoCpf, setEditandoCpf] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Estados dinâmicos do carrinho
+  // Estados dinâmicos do carrinho e cupom
   const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
   const [totalItens, setTotalItens] = useState(0);
   const [valorDesconto, setValorDesconto] = useState(0);
   const [subtotalItens, setSubtotalItens] = useState(0);
-  const [codigoCupom, setCodigoCupom] = useState("primeiropedido");
-  const [percentualDesconto, setPercentualDesconto] = useState(5);
+  const [codigoCupom, setCodigoCupom] = useState("");
+  const [percentualDesconto, setPercentualDesconto] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -54,17 +54,36 @@ export default function Pagamento() {
 
   async function carregarDadosCarrinho() {
     try {
+      // 1. Carregar itens do carrinho
       const carrinhoSalvo = await AsyncStorage.getItem("@carrinho_fitbia");
+      let itens = [];
       if (carrinhoSalvo) {
-        const itens = JSON.parse(carrinhoSalvo);
+        itens = JSON.parse(carrinhoSalvo);
         setItensCarrinho(itens);
-        const bruto = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
-        
-        setTotalItens(bruto);
-        const descontoCalculado = (bruto * percentualDesconto) / 100;
-        setValorDesconto(descontoCalculado);
-        setSubtotalItens(Math.max(0, bruto - descontoCalculado));
       }
+      
+      const bruto = itens.reduce((acc: number, item: any) => acc + (item.valorTotal || 0), 0);
+      setTotalItens(bruto);
+
+      // 2. Carregar cupom salvo no AsyncStorage (mesmo usado no Carrinho)
+      const cupomSalvoStr = await AsyncStorage.getItem("@cupom_aplicado_fitbia");
+      let percentual = 0;
+      let codigo = "";
+
+      if (cupomSalvoStr) {
+        const cupomObj = JSON.parse(cupomSalvoStr);
+        codigo = cupomObj.codigo || "";
+        percentual = Number(cupomObj.porcentagem || 0);
+      }
+
+      setCodigoCupom(codigo);
+      setPercentualDesconto(percentual);
+
+      // 3. Calcular desconto e subtotal com base na porcentagem real do cupom
+      const descontoCalculado = (bruto * percentual) / 100;
+      setValorDesconto(descontoCalculado);
+      setSubtotalItens(Math.max(0, bruto - descontoCalculado));
+
     } catch (error) {
       console.error("Erro ao carregar dados no pagamento:", error);
     }
@@ -102,7 +121,8 @@ export default function Pagamento() {
 
       mensagem += `\n*Resumo de Valores:*\n`;
       mensagem += `Total dos itens: R$ ${totalItens.toFixed(2)}\n`;
-      mensagem += `Desconto (${percentualDesconto}%): -R$ ${valorDesconto.toFixed(2)}\n`;
+      mensagem += `Cupom aplicado: ${codigoCupom ? codigoCupom.toUpperCase() : "Nenhum"} (${percentualDesconto}%)\n`;
+      mensagem += `Desconto: -R$ ${valorDesconto.toFixed(2)}\n`;
       mensagem += `Taxa de entrega: R$ ${taxaEntrega.toFixed(2)}\n`;
       mensagem += `*Total Final: R$ ${valorFinalTotal.toFixed(2)}*\n\n`;
       mensagem += `*Forma de Pagamento:* PIX\n`;
@@ -348,13 +368,13 @@ export default function Pagamento() {
                 <View>
                   <Text style={pagamentoStyle.textoCupom}>Cupom</Text>
                   <Text style={pagamentoStyle.subtextoCupom}>
-                    Cupom adicionado
+                    {codigoCupom ? "Cupom adicionado" : "Nenhum cupom"}
                   </Text>
                 </View>
               </View>
 
               <Text style={pagamentoStyle.codigoCupom}>
-                {codigoCupom.toUpperCase()}
+                {codigoCupom ? codigoCupom.toUpperCase() : "---"}
               </Text>
             </View>
 
