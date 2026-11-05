@@ -35,6 +35,12 @@ export default function RedefinirSenhaScreen() {
 
   const salvamentoEmAndamento = useRef(false);
 
+  // Verifica se a autorização expirou
+  const autorizacaoExpirada =
+    mensagemErro
+      .toLowerCase()
+      .includes("autorização inválida ou expirada");
+
   // Verifica se as senhas são diferentes
   const senhasDiferentes =
     confirmarSenha.length > 0 &&
@@ -100,16 +106,28 @@ export default function RedefinirSenhaScreen() {
 
       const json = await resposta.json();
 
-      if (!resposta.ok) {
+      console.log("STATUS REDEFINIÇÃO:", resposta.status);
+      console.log("RESPOSTA REDEFINIÇÃO:", json);
+
+      // Verifica se a API confirmou a alteração
+      if (!resposta.ok || json.success === false) {
         setMensagemErro(
           json.message || "Não foi possível redefinir a senha."
         );
         return;
       }
 
-      // Redireciona somente após salvar no banco
-      router.replace("/login");
+      // Redireciona somente após sucesso na API
+      router.replace({
+        pathname: "/login",
+        params: {
+          senhaRedefinida: "true",
+        },
+      });
+
     } catch (erro) {
+      console.log("Erro ao redefinir senha:", erro);
+
       setMensagemErro(
         "Não foi possível conectar ao servidor. Tente novamente."
       );
@@ -269,6 +287,33 @@ export default function RedefinirSenhaScreen() {
                   >
                     {mensagemErro}
                   </Text>
+                )}
+
+                {/* Botão exibido somente com autorização expirada */}
+                {autorizacaoExpirada && (
+                  <Pressable
+                    onPress={() => router.replace("/login")}
+                    style={{
+                      backgroundColor: "#E8F5E9",
+                      borderColor: "#38513B",
+                      borderWidth: 1,
+                      borderRadius: 8,
+                      paddingVertical: 12,
+                      alignItems: "center",
+                      marginTop: 15,
+                      marginBottom: 10,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: "#38513B",
+                        fontSize: 14,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      Voltar para o login
+                    </Text>
+                  </Pressable>
                 )}
 
                 {/* Salvar nova senha */}

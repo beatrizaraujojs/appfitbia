@@ -1,4 +1,5 @@
-import { router } from "expo-router";
+
+import { router, useLocalSearchParams } from "expo-router";
 import { useState, useEffect } from "react";
 import {
   Image,
@@ -19,20 +20,54 @@ import configuracoesStyle from "@/styles/configuracoesStyle";
 
 const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
-const IMAGEM_BASE = `${SERVIDOR}/clientes`; // Ajusta o caminho base da pasta de fotos de cliente se necessário
+const IMAGEM_BASE = `${SERVIDOR}/clientes`;
+
+function obterUriFoto(foto: string | null) {
+  if (!foto) return null;
+
+  if (
+    foto.startsWith("http") ||
+    foto.startsWith("data:") ||
+    foto.startsWith("blob:")
+  ) {
+    return foto;
+  }
+
+  return `${IMAGEM_BASE}/${foto}`;
+}
 
 export default function ConfiguracoesScreen() {
+  const params = useLocalSearchParams();
+
   const [modalSairVisivel, setModalSairVisivel] = useState(false);
   const [nomeCliente, setNomeCliente] = useState("");
   const [criadoEm, setCriadoEm] = useState("");
   const [fotoCliente, setFotoCliente] = useState<string | null>(null);
   const [carregando, setCarregando] = useState(true);
 
-  // 1. Carregar os dados do perfil do cliente autenticado
+  // Mensagem de perfil atualizado
+  const [mensagemSucesso, setMensagemSucesso] = useState(
+    params.perfilAtualizado === "true"
+  );
+
+  // Exibe a mensagem após salvar o perfil
+  useEffect(() => {
+    if (params.perfilAtualizado === "true") {
+      setMensagemSucesso(true);
+
+      // Limpa o parâmetro para evitar repetição
+      router.setParams({
+        perfilAtualizado: "",
+      });
+    }
+  }, [params.perfilAtualizado]);
+
+  // Carregar dados do perfil
   useEffect(() => {
     async function carregarPerfil() {
       try {
         const token = await AsyncStorage.getItem("token");
+
         if (!token) {
           router.replace("/login");
           return;
@@ -48,25 +83,44 @@ export default function ConfiguracoesScreen() {
 
         const json = await resposta.json();
 
-        if (resposta.ok && json.success) {
-          setNomeCliente(json.data.nome_cliente || "Utilizador");
+        if (resposta.ok && json.success && json.data) {
+          setNomeCliente(
+            json.data.nome_cliente || "Utilizador"
+          );
 
-          // Define a foto do cliente se vier preenchida na API
-          if (json.data.foto_cliente) {
-            setFotoCliente(json.data.foto_cliente);
-          }
+          // Atualiza a foto com os dados da API
+          setFotoCliente(
+            json.data.foto_cliente || null
+          );
 
-          // Extrai o ano de criação da conta caso exista a data na resposta
-          if (json.data.criado_em_cliente || json.data.created_at) {
-            const dataData = json.data.criado_em_cliente || json.data.created_at;
+          // Data de criação da conta
+          if (
+            json.data.criado_em_cliente ||
+            json.data.created_at
+          ) {
+            const dataData =
+              json.data.criado_em_cliente ||
+              json.data.created_at;
+
             const ano = new Date(dataData).getFullYear();
-            setCriadoEm(String(ano));
+
+            setCriadoEm(
+              Number.isNaN(ano) ? "" : String(ano)
+            );
           } else {
-            setCriadoEm("2024");
+            setCriadoEm("");
           }
+        } else {
+          console.log(
+            "Erro ao carregar perfil:",
+            json.message
+          );
         }
       } catch (erro) {
-        console.log("Erro ao carregar dados em configurações:", erro);
+        console.log(
+          "Erro ao carregar dados em configurações:",
+          erro
+        );
       } finally {
         setCarregando(false);
       }
@@ -75,10 +129,11 @@ export default function ConfiguracoesScreen() {
     carregarPerfil();
   }, []);
 
-  // 2. Fazer Logout revogando o token e removendo do AsyncStorage
+  // Logout
   const handleConfirmarSair = async () => {
     try {
       setModalSairVisivel(false);
+
       const token = await AsyncStorage.getItem("token");
 
       if (token) {
@@ -95,12 +150,12 @@ export default function ConfiguracoesScreen() {
     } finally {
       await AsyncStorage.removeItem("token");
       await AsyncStorage.removeItem("nome_cliente");
+
       router.replace("/");
     }
   };
 
-  // Define a URI da foto: usa a da API se existir, senão usa null para cair no fallback
-  const uriFotoPerfil = fotoCliente ? `${IMAGEM_BASE}/${fotoCliente}` : null;
+  const uriFotoPerfil = obterUriFoto(fotoCliente);
 
   return (
     <View style={globalStyle.container}>
@@ -115,23 +170,44 @@ export default function ConfiguracoesScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={configuracoesStyle.conteudo}>
+
               {/* Header */}
               <View style={configuracoesStyle.header}>
                 <Pressable
                   onPress={() => router.back()}
                   style={configuracoesStyle.btnVoltar}
                 >
-                  <Text style={configuracoesStyle.txtVoltar}>←</Text>
+                  <Text style={configuracoesStyle.txtVoltar}>
+                    ←
+                  </Text>
                 </Pressable>
+
                 <Text style={configuracoesStyle.tituloHeader}>
                   Configurações
                 </Text>
+
                 <Image
                   source={require("@/assets/images/fitbia/logo-fitbia.svg")}
                   style={configuracoesStyle.logoHeader}
                   resizeMode="contain"
                 />
               </View>
+
+              {/* Mensagem de sucesso */}
+              {mensagemSucesso && (
+                <Text
+                  style={{
+                    color: "#2E7D32",
+                    fontSize: 13,
+                    fontWeight: "bold",
+                    textAlign: "center",
+                    marginTop: 5,
+                    marginBottom: 15,
+                  }}
+                >
+                  Perfil Atualizado
+                </Text>
+              )}
 
               {/* Card de Perfil */}
               <View style={configuracoesStyle.cardPerfil}>
@@ -148,12 +224,16 @@ export default function ConfiguracoesScreen() {
 
                 <View style={configuracoesStyle.infoPerfil}>
                   {carregando ? (
-                    <ActivityIndicator size="small" color="#4B5320" />
+                    <ActivityIndicator
+                      size="small"
+                      color="#4B5320"
+                    />
                   ) : (
                     <>
                       <Text style={configuracoesStyle.nomeUsuario}>
                         {nomeCliente || "Cliente"}
                       </Text>
+
                       <View style={configuracoesStyle.badgeCliente}>
                         <Text style={configuracoesStyle.txtBadge}>
                           Cliente desde {criadoEm || "2024"}
@@ -166,6 +246,8 @@ export default function ConfiguracoesScreen() {
 
               {/* Opções */}
               <View style={configuracoesStyle.listaOpcoes}>
+
+                {/* Editar conta */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
                   onPress={() => router.push("/editar-conta")}
@@ -174,102 +256,142 @@ export default function ConfiguracoesScreen() {
                     source={require("@/assets/images/fitbia/editar.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Editar conta
                     </Text>
+
                     <Text style={configuracoesStyle.opcaoSubtitulo}>
                       nome, telefone, email...
                     </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
+                {/* Favoritos */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
-                  onPress={() => router.push("/favoritos" as any)}
+                  onPress={() => router.push("/favoritos")}
                 >
                   <Image
                     source={require("@/assets/images/fitbia/favorito.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Meus favoritos
                     </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
+                {/* Endereços */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
-                  onPress={() => router.push("/enderecos" as any)}
+                  onPress={() => router.push("/enderecos")}
                 >
                   <Image
                     source={require("@/assets/images/fitbia/endereco-residencial.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Meus endereços
                     </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
+                {/* Pedidos */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
-                  onPress={() => router.replace("/pedidoEmAndamento")}
+                  onPress={() =>
+                    router.replace("/pedidoEmAndamento")
+                  }
                 >
                   <Image
                     source={require("@/assets/images/fitbia/pedido-certo-branco.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Meus Pedidos
                     </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
+                {/* Suporte */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
-                  onPress={() => router.push("/suporte" as any)}
+                  onPress={() => router.push("/suporte")}
                 >
                   <Image
                     source={require("@/assets/images/fitbia/central-de-atendimento.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Ajuda e suporte
                     </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
+                {/* Sobre */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
-                  onPress={() => router.push("/sobre" as any)}
+                  onPress={() => router.push("/sobre")}
                 >
                   <Image
                     source={require("@/assets/images/fitbia/info.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
-                    <Text style={configuracoesStyle.opcaoTitulo}>Sobre</Text>
+                    <Text style={configuracoesStyle.opcaoTitulo}>
+                      Sobre
+                    </Text>
                   </View>
-                  <Text style={configuracoesStyle.opcaoSeta}>&gt;</Text>
+
+                  <Text style={configuracoesStyle.opcaoSeta}>
+                    &gt;
+                  </Text>
                 </Pressable>
+
                 <View style={configuracoesStyle.divisor} />
 
-                {/* Sair da Conta abre o Modal */}
+                {/* Sair da Conta */}
                 <Pressable
                   style={configuracoesStyle.opcaoItem}
                   onPress={() => setModalSairVisivel(true)}
@@ -278,17 +400,19 @@ export default function ConfiguracoesScreen() {
                     source={require("@/assets/images/fitbia/sair-verde.png")}
                     style={configuracoesStyle.opcaoIcone}
                   />
+
                   <View style={configuracoesStyle.opcaoTextoBox}>
                     <Text style={configuracoesStyle.opcaoTitulo}>
                       Sair da conta
                     </Text>
                   </View>
                 </Pressable>
+
               </View>
             </View>
           </ScrollView>
 
-          {/* Componente Modal */}
+          {/* Modal de Logout */}
           <ModalSair
             visible={modalSairVisivel}
             onClose={() => setModalSairVisivel(false)}

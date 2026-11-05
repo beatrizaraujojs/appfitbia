@@ -23,7 +23,6 @@ const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
-// Identificar o dia da semana pelo nome do produto
 function identificarDia(nome: string) {
   const texto = nome
     .toLowerCase()
@@ -43,7 +42,6 @@ function identificarDia(nome: string) {
   return dias.findIndex((dia) => texto.includes(dia));
 }
 
-// Formatar preço em reais
 function formatarPreco(valor: any) {
   return `R$ ${Number(valor || 0)
     .toFixed(2)
@@ -53,6 +51,8 @@ function formatarPreco(valor: any) {
 export default function MenuScreen() {
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
+  const timerMensagem = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const favoritosEmProcessamento = useRef<Set<number>>(new Set());
 
   const [busca, setBusca] = useState(
     params.busca ? String(params.busca) : ""
@@ -70,8 +70,8 @@ export default function MenuScreen() {
   const [produtoSelecionado, setProdutoSelecionado] =
     useState<Produto | null>(null);
 
-  // Dia atual, atualizado ao entrar na tela
   const [hoje, setHoje] = useState(new Date().getDay());
+  const [mensagemFavorito, setMensagemFavorito] = useState("");
 
   useFocusEffect(
     useCallback(() => {
@@ -85,7 +85,26 @@ export default function MenuScreen() {
     }
   }, [params.busca]);
 
-  // Carregar categorias
+  useEffect(() => {
+    return () => {
+      if (timerMensagem.current) {
+        clearTimeout(timerMensagem.current);
+      }
+    };
+  }, []);
+
+  const mostrarMensagem = (mensagem: string) => {
+    if (timerMensagem.current) {
+      clearTimeout(timerMensagem.current);
+    }
+
+    setMensagemFavorito(mensagem);
+
+    timerMensagem.current = setTimeout(() => {
+      setMensagemFavorito("");
+    }, 2500);
+  };
+
   useFocusEffect(
     useCallback(() => {
       async function carregarCategorias() {
@@ -93,7 +112,7 @@ export default function MenuScreen() {
           const resp = await fetch(`${API}/categorias`);
           const json = await resp.json();
 
-          if (json && json.success && Array.isArray(json.data)) {
+          if (json?.success && Array.isArray(json.data)) {
             setCategorias(json.data);
           } else if (Array.isArray(json)) {
             setCategorias(json);
@@ -107,9 +126,11 @@ export default function MenuScreen() {
     }, [])
   );
 
-  // Carregar produtos e favoritos
   useFocusEffect(
     useCallback(() => {
+      let ativo = true;
+      let timerScroll: ReturnType<typeof setTimeout> | null = null;
+
       async function carregarProdutosComFavoritos() {
         try {
           const token = await AsyncStorage.getItem("token");
@@ -119,6 +140,7 @@ export default function MenuScreen() {
             token
               ? fetch(`${API}/favoritos`, {
                   headers: {
+                    Accept: "application/json",
                     Authorization: `Bearer ${token}`,
                   },
                 })
@@ -128,7 +150,7 @@ export default function MenuScreen() {
           const json = await respProdutos.json();
           let idsFavoritos: number[] = [];
 
-          if (respFavoritos && respFavoritos.ok) {
+          if (respFavoritos?.ok) {
             const jsonFavoritos = await respFavoritos.json();
 
             const listaFavoritos = Array.isArray(jsonFavoritos)
@@ -138,53 +160,83 @@ export default function MenuScreen() {
               : [];
 
             idsFavoritos = listaFavoritos.map((fav: any) =>
-              Number(fav.id_produto_fk || fav.id_produto || fav.id)
+              Number(
+                fav.id_produto_fk ??
+                fav.id_produto ??
+                fav.id
+              )
             );
           }
 
           let listaProdutos: any[] = [];
 
-          if (json && json.success && Array.isArray(json.data)) {
+          if (json?.success && Array.isArray(json.data)) {
             listaProdutos = json.data;
           } else if (Array.isArray(json)) {
             listaProdutos = json;
           }
 
           const produtosMapeados = listaProdutos.map((produto: any) => {
-            const prodId = produto.id_produto || produto.id;
+            const prodId = Number(
+              produto.id_produto ?? produto.id
+            );
 
             return {
               ...produto,
-              favorito: idsFavoritos.includes(Number(prodId)),
+              favorito: idsFavoritos.includes(prodId),
             };
           });
 
-          setProdutosCardapio(produtosMapeados);
+          if (ativo) {
+            setProdutosCardapio(produtosMapeados);
 
-          setTimeout(() => {
-            scrollViewRef.current?.scrollTo({
-              y: 320,
-              animated: true,
-            });
-          }, 200);
+            if (params.id_categoria || params.busca) {
+              timerScroll = setTimeout(() => {
+                scrollViewRef.current?.scrollTo({
+                  y: 320,
+                  animated: true,
+                });
+              }, 200);
+            }
+          }
         } catch (erro) {
           console.error("Erro ao carregar produtos:", erro);
         }
       }
 
       carregarProdutosComFavoritos();
-    }, [categoriaAtiva])
+
+      return () => {
+        ativo = false;
+        if (timerScroll) clearTimeout(timerScroll);
+      };
+    }, [params.id_categoria, params.busca])
   );
 
-  // Favoritar ou desfavoritar
   const toggleFavorito = async (idItem: number) => {
+    if (favoritosEmProcessamento.current.has(idItem)) return;
+
+    favoritosEmProcessamento.current.add(idItem);
+
     try {
       const token = await AsyncStorage.getItem("token");
+
+      if (!token) {
+        mostrarMensagem("Faça login para favoritar produtos");
+        return;
+      }
+
+      const produtoAtual = produtosCardapio.find(
+        (item) => Number(item.id_produto ?? item.id) === idItem
+      );
+
+      const eraFavorito = Boolean(produtoAtual?.favorito);
 
       const response = await fetch(`${API}/favoritos/toggle`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "application/json",
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
@@ -192,28 +244,36 @@ export default function MenuScreen() {
         }),
       });
 
-      if (response.ok) {
-        setProdutosCardapio((prev) =>
-          prev.map((item) =>
-            item.id_produto === idItem || item.id === idItem
-              ? { ...item, favorito: !item.favorito }
-              : item
-          )
-        );
+      if (!response.ok) {
+        throw new Error("Não foi possível atualizar o favorito");
       }
+
+      setProdutosCardapio((prev) =>
+        prev.map((item) =>
+          Number(item.id_produto ?? item.id) === idItem
+            ? { ...item, favorito: !eraFavorito }
+            : item
+        )
+      );
+
+      mostrarMensagem(
+        eraFavorito
+          ? "Produto removido dos favoritos"
+          : "Produto adicionado aos favoritos"
+      );
     } catch (error) {
       console.error("Erro ao alterar favorito no Menu:", error);
+      mostrarMensagem("Erro ao atualizar favoritos");
+    } finally {
+      favoritosEmProcessamento.current.delete(idItem);
     }
   };
 
-  // Abrir modal do produto
   const abrirModal = (produto: any) => {
     setProdutoSelecionado(produto);
     setModalVisivel(true);
   };
 
-  // Pratos da semana: categoria Pratos do dia (ID 8)
-  // Ordenação começa pelo dia atual
   const pratosSemana = produtosCardapio
     .filter(
       (produto) =>
@@ -230,7 +290,6 @@ export default function MenuScreen() {
       return ordemA - ordemB;
     });
 
-  // Filtrar produtos por busca e categoria
   const produtosFiltrados = produtosCardapio.filter((produto) => {
     const nomeProd = produto.nome_produto || produto.nome || "";
 
@@ -255,7 +314,6 @@ export default function MenuScreen() {
     );
   });
 
-  // Agrupar produtos por categoria
   const produtosPorCategoria = categorias
     .map((cat) => {
       const catId = cat.id_categoria || cat.id;
@@ -289,9 +347,54 @@ export default function MenuScreen() {
             String(categoriaAtiva)
         )?.nome_categoria || "Categoria";
 
-  // Renderizar cards dos produtos
+  // Botão + centralizado na elipse verde
+  const BotaoAdicionar = ({
+    produto,
+    tamanho = 22,
+  }: {
+    produto: any;
+    tamanho?: number;
+  }) => (
+    <Pressable
+      onPress={() => abrirModal(produto)}
+      style={{
+        width: tamanho,
+        height: tamanho,
+        borderRadius: tamanho / 2,
+        backgroundColor: "#4B8061",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 0,
+      }}
+    >
+      <View
+        style={{
+          width: tamanho,
+          height: tamanho,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Text
+          style={{
+            color: "#FFFFFF",
+            fontSize: 18,
+            fontWeight: "bold",
+            lineHeight: 21,
+            includeFontPadding: false,
+            textAlign: "center",
+            textAlignVertical: "center",
+            marginTop: -1,
+          }}
+        >
+          +
+        </Text>
+      </View>
+    </Pressable>
+  );
+
   const renderizarCard = (produto: any) => {
-    const prodId = produto.id_produto || produto.id;
+    const prodId = Number(produto.id_produto ?? produto.id);
 
     const imagemUri =
       semImagem.includes(prodId) || !produto.foto_produto
@@ -482,8 +585,9 @@ export default function MenuScreen() {
                     contentContainerStyle={menuStyle.listaPratosSemana}
                   >
                     {pratosSemana.map((produto) => {
-                      const prodId =
-                        produto.id_produto || produto.id;
+                      const prodId = Number(
+                        produto.id_produto ?? produto.id
+                      );
 
                       const imagemUri =
                         semImagem.includes(prodId) ||
@@ -531,16 +635,33 @@ export default function MenuScreen() {
                             {produto.nome_produto || produto.nome}
                           </Text>
 
-                          <Text
+                          {/* Preço e botão + */}
+                          <View
                             style={{
-                              fontSize: 13,
-                              fontWeight: "bold",
-                              color: "#916F4A",
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "space-between",
                               marginTop: 3,
+                              paddingRight: 5,
                             }}
                           >
-                            {formatarPreco(preco)}
-                          </Text>
+                            <Text
+                              style={{
+                                fontSize: 13,
+                                fontWeight: "bold",
+                                color: "#916F4A",
+                              }}
+                            >
+                              {formatarPreco(preco)}
+                            </Text>
+
+                            <View
+                              onStartShouldSetResponder={() => true}
+                              onResponderRelease={() => abrirModal(produto)}
+                            >
+                              <BotaoAdicionar produto={produto} />
+                            </View>
+                          </View>
                         </Pressable>
                       );
                     })}
@@ -618,6 +739,35 @@ export default function MenuScreen() {
               </View>
             </View>
           </ScrollView>
+
+          {/* Mensagem de favoritos */}
+          {mensagemFavorito !== "" && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: 8,
+                alignSelf: "center",
+                backgroundColor: "#B7C5B7",
+                paddingHorizontal: 18,
+                paddingVertical: 9,
+                borderRadius: 5,
+                zIndex: 100,
+                maxWidth: "90%",
+              }}
+            >
+              <Text
+                style={{
+                  color: "#2E813B",
+                  fontSize: 12,
+                  fontWeight: "bold",
+                  textAlign: "center",
+                }}
+              >
+                {mensagemFavorito}
+              </Text>
+            </View>
+          )}
 
           <BottomBar abaAtiva="cardapio" />
         </SafeAreaView>

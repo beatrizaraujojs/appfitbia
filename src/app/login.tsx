@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { router } from "expo-router";
+
+import { useEffect, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   View,
@@ -20,10 +21,29 @@ const API = `${SERVIDOR}/api/v1`;
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function LoginScreen() {
+  const params = useLocalSearchParams();
+
   const [verSenha, setVerSenha] = useState(false);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
+
+  // Controla a mensagem de sucesso
+  const [mensagemSucesso, setMensagemSucesso] = useState(
+    params.senhaRedefinida === "true"
+  );
+
+  // Exibe a mensagem após redefinir a senha
+  useEffect(() => {
+    if (params.senhaRedefinida === "true") {
+      setMensagemSucesso(true);
+
+      // Limpa o parâmetro para evitar repetição
+      router.setParams({
+        senhaRedefinida: "",
+      });
+    }
+  }, [params.senhaRedefinida]);
 
   async function handleLogin() {
     if (!email || !senha) {
@@ -48,19 +68,32 @@ export default function LoginScreen() {
 
       const json = await resposta.json();
 
+      console.log("STATUS LOGIN:", resposta.status);
+      console.log("LOGIN SUCESSO:", json.success);
+      console.log("TOKEN RECEBIDO:", !!json.data?.token);
+
       if (!resposta.ok) {
-        Alert.alert("Erro", json.message || "E-mail ou senha inválidos.");
+        Alert.alert(
+          "Erro",
+          json.message || "E-mail ou senha inválidos."
+        );
         return;
       }
 
-      // Salva o token gerado pelo Sanctum no armazenamento local do dispositivo
+      // Salva o token gerado pelo Sanctum
       await AsyncStorage.setItem("token", json.data.token);
 
-      // Redireciona para a home após o sucesso
+      // Remove a mensagem após login bem-sucedido
+      setMensagemSucesso(false);
+
+      // Redireciona para a home
       router.replace("/home");
     } catch (erro) {
-      console.log("Erro ao fazer login: ", erro);
-      Alert.alert("Erro", "Não foi possível conectar ao servidor.");
+      console.log("Erro ao fazer login:", erro);
+      Alert.alert(
+        "Erro",
+        "Não foi possível conectar ao servidor."
+      );
     } finally {
       setCarregando(false);
     }
@@ -84,21 +117,28 @@ export default function LoginScreen() {
             resizeMode="contain"
           />
 
-          <Text style={loginStyle.titulo}>Bem-vindo(a)!</Text>
+          <Text style={loginStyle.titulo}>
+            Bem-vindo(a)!
+          </Text>
+
           <Text style={loginStyle.subtitulo}>
             Faça seu login para continuar
           </Text>
 
           {/* Formulário de login */}
           <View style={loginStyle.form}>
+
             {/* E-mail */}
-            <Text style={loginStyle.tituloInput}>Email</Text>
+            <Text style={loginStyle.tituloInput}>
+              Email
+            </Text>
 
             <View style={loginStyle.input}>
               <Image
                 source={require("@/assets/images/fitbia/email-verde.png")}
                 style={loginStyle.icone}
               />
+
               <TextInput
                 placeholder="Informe o seu e-mail:"
                 placeholderTextColor="#888888"
@@ -111,7 +151,9 @@ export default function LoginScreen() {
             </View>
 
             {/* Senha */}
-            <Text style={loginStyle.tituloInput}>Senha</Text>
+            <Text style={loginStyle.tituloInput}>
+              Senha
+            </Text>
 
             <View style={loginStyle.input}>
               <View style={loginStyle.inputContent}>
@@ -119,6 +161,7 @@ export default function LoginScreen() {
                   source={require("@/assets/images/fitbia/senha-verde.png")}
                   style={loginStyle.icone}
                 />
+
                 <TextInput
                   placeholder="Informe a sua senha:"
                   placeholderTextColor="#888888"
@@ -131,7 +174,9 @@ export default function LoginScreen() {
 
               <Pressable
                 style={loginStyle.btnMostrarSenha}
-                onPress={() => setVerSenha((current) => !current)}
+                onPress={() =>
+                  setVerSenha((current) => !current)
+                }
               >
                 <Image
                   source={
@@ -144,17 +189,36 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
+            {/* Esqueci minha senha */}
             <Pressable
               style={({ pressed }) => [
                 loginStyle.btnEsqueciSenha,
                 pressed && loginStyle.btnEsqueciSenhaPressed,
               ]}
-              onPress={() => router.navigate("/esqueciSenha")}
+              onPress={() =>
+                router.navigate("/esqueciSenha")
+              }
             >
               <Text style={loginStyle.txtEsqueciSenha}>
                 Esqueci minha senha
               </Text>
             </Pressable>
+
+            {/* Mensagem de sucesso sem fundo */}
+            {mensagemSucesso && (
+              <Text
+                style={{
+                  color: "#2E7D32",
+                  fontSize: 13,
+                  fontWeight: "bold",
+                  textAlign: "center",
+                  marginTop: 5,
+                  marginBottom: 15,
+                }}
+              >
+                Senha alterada com sucesso!
+              </Text>
+            )}
 
             {/* Botão Entrar */}
             <Pressable
@@ -166,17 +230,27 @@ export default function LoginScreen() {
               disabled={carregando}
             >
               <Text style={loginStyle.textoEntrar}>
-                {carregando ? "A entar..." : "Entrar"}
+                {carregando ? "Carregando..." : "Entrar"}
               </Text>
             </Pressable>
 
+            {/* Criar conta */}
             <View style={loginStyle.criarConta}>
-              <Text style={loginStyle.textoCriar}>Primeira vez aqui?</Text>
+              <Text style={loginStyle.textoCriar}>
+                Primeira vez aqui?
+              </Text>
 
-              <Pressable onPress={() => router.navigate("/criarConta")}>
-                <Text style={loginStyle.linkCriarConta}>Criar conta</Text>
+              <Pressable
+                onPress={() =>
+                  router.navigate("/criarConta")
+                }
+              >
+                <Text style={loginStyle.linkCriarConta}>
+                  Criar conta
+                </Text>
               </Pressable>
             </View>
+
           </View>
         </ScrollView>
       </ImageBackground>
