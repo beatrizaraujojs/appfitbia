@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   ActivityIndicator,
@@ -14,8 +13,9 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 
-import globalStyle from "@/styles/globalStyle";
-import esqueciSenhaStyle from "@/styles/esqueciSenhaStyle";
+// Caminhos relativos para corrigir o erro do TypeScript no VS Code
+import globalStyle from "../styles/globalStyle";
+import esqueciSenhaStyle from "../styles/esqueciSenhaStyle";
 
 const API = "http://localhost:8081/api/v1";
 
@@ -49,11 +49,19 @@ export default function EsqueciSenha() {
         }),
       });
 
-      const dados = await resposta.json();
+      // Leitura segura do corpo para evitar falhas caso o servidor retorne texto plano
+      const textoResposta = await resposta.text();
+      let dados;
+
+      try {
+        dados = textoResposta ? JSON.parse(textoResposta) : {};
+      } catch (e) {
+        dados = { message: textoResposta };
+      }
 
       if (!resposta.ok) {
         setMensagem(
-          dados.message || "Não foi possível solicitar o token."
+          dados.message || dados.error || "Não foi possível solicitar o token."
         );
         return;
       }
@@ -88,7 +96,6 @@ export default function EsqueciSenha() {
             showsVerticalScrollIndicator={false}
           >
             <View style={esqueciSenhaStyle.conteudo}>
-
               {/* Logo */}
               <Image
                 source={require("@/assets/images/fitbia/logo-fitbia.svg")}
@@ -187,7 +194,6 @@ export default function EsqueciSenha() {
                   </Text>
                 </Pressable>
               </View>
-
             </View>
           </ScrollView>
         </SafeAreaView>

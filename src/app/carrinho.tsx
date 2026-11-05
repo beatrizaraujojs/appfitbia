@@ -21,146 +21,224 @@ import ProdutoModal from "@/components/produtoModal";
 
 const SERVIDOR = "http://localhost:8081";
 const CHAVE_CARRINHO = "@carrinho_fitbia";
+const CHAVE_CUPOM = "@cupom_aplicado_fitbia";
+
+type ItemCarrinho = {
+  cartItemId: string;
+  id: string | number;
+  nome: string;
+  descricao?: string;
+  foto_produto?: string;
+  precoUnitario: number;
+  quantidade: number;
+  valorTotal: number;
+  observacao?: string;
+  adicionaisSelecionados?: Record<string, number>;
+};
+
+const formatarPreco = (valor: number) =>
+  `R$ ${valor.toFixed(2).replace(".", ",")}`;
+
+function chaveConfiguracao(item: ItemCarrinho) {
+  const adicionais = Object.entries(
+    item.adicionaisSelecionados || {}
+  )
+    .filter(([, quantidade]) => Number(quantidade) > 0)
+    .map(([id, quantidade]) => [id, Number(quantidade)])
+    .sort(([idA], [idB]) => String(idA).localeCompare(String(idB)));
+
+  return JSON.stringify({
+    id: String(item.id),
+    precoUnitario: Number(item.precoUnitario) || 0,
+    observacao: String(item.observacao || "").trim(),
+    adicionais,
+  });
+}
+
+function agruparItens(itens: ItemCarrinho[]) {
+  const agrupados: ItemCarrinho[] = [];
+
+  itens.forEach((item, indice) => {
+    const quantidade = Math.max(1, Number(item.quantidade) || 1);
+    const precoUnitario = Number(item.precoUnitario) || 0;
+
+    const existente = agrupados.find(
+      (produto) =>
+        chaveConfiguracao(produto) === chaveConfiguracao(item)
+    );
+
+    if (existente) {
+      existente.quantidade += quantidade;
+      existente.valorTotal =
+        existente.precoUnitario * existente.quantidade;
+    } else {
+      agrupados.push({
+        ...item,
+        cartItemId:
+          item.cartItemId ||
+          `${item.id}-${Date.now()}-${indice}`,
+        quantidade,
+        precoUnitario,
+        valorTotal: precoUnitario * quantidade,
+      });
+    }
+  });
+
+  return agrupados;
+}
 
 export default function CarrinhoScreen() {
   const [cupom, setCupom] = useState("");
   const [percentualDesconto, setPercentualDesconto] = useState(0);
   const [modalCupomVisivel, setModalCupomVisivel] = useState(false);
-  const [itensCarrinho, setItensCarrinho] = useState<any[]>([]);
+  const [itensCarrinho, setItensCarrinho] = useState<ItemCarrinho[]>([]);
 
   const [produtoModalVisivel, setProdutoModalVisivel] = useState(false);
-  const [produtoSelecionado, setProdutoSelecionado] = useState<any>(null);
+  const [produtoSelecionado, setProdutoSelecionado] =
+    useState<any>(null);
 
-  // Agrupa produtos iguais, mantendo configurações diferentes separadas
-  const agruparItens = (itens: any[]) => {
-    const agrupados: any[] = [];
-
-    itens.forEach((item) => {
-      const quantidade = Number(item.quantidade) || 1;
-      const precoUnitario = Number(item.precoUnitario) || 0;
-
-      const existente = agrupados.find(
-        (produto) =>
-          String(produto.id) === String(item.id) &&
-          Number(produto.precoUnitario) === precoUnitario &&
-          (produto.observacao || "") === (item.observacao || "") &&
-          JSON.stringify(produto.adicionaisSelecionados || {}) ===
-            JSON.stringify(item.adicionaisSelecionados || {})
+  const carregarCarrinho = useCallback(async () => {
+    try {
+      const carrinhoSalvo = await AsyncStorage.getItem(
+        CHAVE_CARRINHO
       );
 
-      if (existente) {
-        existente.quantidade += quantidade;
-        existente.valorTotal =
-          existente.precoUnitario * existente.quantidade;
+      const itens = carrinhoSalvo
+        ? JSON.parse(carrinhoSalvo)
+        : [];
+
+      const listaAgrupada = agruparItens(
+        Array.isArray(itens) ? itens : []
+      );
+
+      setItensCarrinho(listaAgrupada);
+
+      await AsyncStorage.setItem(
+        CHAVE_CARRINHO,
+        JSON.stringify(listaAgrupada)
+      );
+    } catch (erro) {
+      console.error("Erro ao carregar carrinho:", erro);
+    }
+  }, []);
+
+  const carregarCupomSalvo = useCallback(async () => {
+    try {
+      const cupomSalvo = await AsyncStorage.getItem(CHAVE_CUPOM);
+
+      if (cupomSalvo) {
+        const dados = JSON.parse(cupomSalvo);
+        setCupom(dados.codigo || "");
+        setPercentualDesconto(
+          Number(dados.porcentagem) || 0
+        );
       } else {
-        agrupados.push({
-          ...item,
-          cartItemId:
-            item.cartItemId ||
-            `${item.id}-${Date.now()}-${agrupados.length}`,
-          quantidade,
-          precoUnitario,
-          valorTotal: precoUnitario * quantidade,
-        });
+        setCupom("");
+        setPercentualDesconto(0);
       }
-    });
+    } catch (erro) {
+      console.error("Erro ao carregar cupom:", erro);
+    }
+  }, []);
 
-    return agrupados;
-  };
-
-  // Carregar carrinho ao entrar na tela
   useFocusEffect(
     useCallback(() => {
       carregarCarrinho();
-    }, [])
+      carregarCupomSalvo();
+    }, [carregarCarrinho, carregarCupomSalvo])
   );
 
-  async function carregarCarrinho() {
+  const salvarCarrinho = async (lista: ItemCarrinho[]) => {
     try {
-      const carrinhoSalvo = await AsyncStorage.getItem(CHAVE_CARRINHO);
+      setItensCarrinho(lista);
 
-      if (carrinhoSalvo) {
-        const itens = JSON.parse(carrinhoSalvo);
-        const listaAgrupada = agruparItens(
-          Array.isArray(itens) ? itens : []
-        );
-
-        setItensCarrinho(listaAgrupada);
-
-        await AsyncStorage.setItem(
-          CHAVE_CARRINHO,
-          JSON.stringify(listaAgrupada)
-        );
-      } else {
-        setItensCarrinho([]);
-      }
-    } catch (error) {
-      console.error("Erro ao carregar carrinho:", error);
+      await AsyncStorage.setItem(
+        CHAVE_CARRINHO,
+        JSON.stringify(lista)
+      );
+    } catch (erro) {
+      console.error("Erro ao salvar carrinho:", erro);
     }
-  }
+  };
 
-  // Alterar quantidade de um produto
   const alterarQuantidadeItem = async (
     cartItemId: string,
     delta: number
   ) => {
     const novaLista = itensCarrinho
       .map((item) => {
-        if (item.cartItemId === cartItemId) {
-          const novaQtd = item.quantidade + delta;
-
-          return {
-            ...item,
-            quantidade: novaQtd,
-            valorTotal: item.precoUnitario * novaQtd,
-          };
+        if (item.cartItemId !== cartItemId) {
+          return item;
         }
 
-        return item;
+        const novaQuantidade = item.quantidade + delta;
+
+        return {
+          ...item,
+          quantidade: novaQuantidade,
+          valorTotal: item.precoUnitario * novaQuantidade,
+        };
       })
       .filter((item) => item.quantidade > 0);
 
-    setItensCarrinho(novaLista);
+    await salvarCarrinho(novaLista);
 
-    try {
-      await AsyncStorage.setItem(
-        CHAVE_CARRINHO,
-        JSON.stringify(novaLista)
-      );
-    } catch (error) {
-      console.error("Erro ao atualizar quantidade:", error);
+    if (novaLista.length === 0) {
+      await AsyncStorage.removeItem(CHAVE_CUPOM);
+      setCupom("");
+      setPercentualDesconto(0);
     }
   };
 
-  // Limpar carrinho
   const limparCarrinho = async () => {
     try {
-      await AsyncStorage.removeItem(CHAVE_CARRINHO);
+      await AsyncStorage.multiRemove([
+        CHAVE_CARRINHO,
+        CHAVE_CUPOM,
+      ]);
+
       setItensCarrinho([]);
       setCupom("");
       setPercentualDesconto(0);
-    } catch (error) {
-      console.error("Erro ao limpar carrinho:", error);
+    } catch (erro) {
+      console.error("Erro ao limpar carrinho:", erro);
     }
   };
 
-  // Aplicar cupom
-  const handleAplicarCupom = (
+  const handleAplicarCupom = async (
     novoCupom: string,
     descontoBanco: number
   ) => {
-    setCupom(novoCupom);
-    setPercentualDesconto(Number(descontoBanco) || 0);
+    const codigo = novoCupom.trim();
+    const percentual = Number(descontoBanco) || 0;
+
+    setCupom(codigo);
+    setPercentualDesconto(percentual);
+
+    try {
+      if (codigo) {
+        await AsyncStorage.setItem(
+          CHAVE_CUPOM,
+          JSON.stringify({
+            codigo,
+            porcentagem: percentual,
+          })
+        );
+      } else {
+        await AsyncStorage.removeItem(CHAVE_CUPOM);
+      }
+    } catch (erro) {
+      console.error("Erro ao salvar cupom:", erro);
+    }
   };
 
-  // Cálculos dinâmicos
   const totalItensValor = itensCarrinho.reduce(
-    (acc, item) => acc + (Number(item.valorTotal) || 0),
+    (total, item) => total + (Number(item.valorTotal) || 0),
     0
   );
 
   const totalQuantidadeItens = itensCarrinho.reduce(
-    (acc, item) => acc + (Number(item.quantidade) || 0),
+    (total, item) => total + (Number(item.quantidade) || 0),
     0
   );
 
@@ -175,8 +253,24 @@ export default function CarrinhoScreen() {
 
   const carrinhoVazio = itensCarrinho.length === 0;
 
-  const formatarPreco = (valor: number) =>
-    `R$ ${valor.toFixed(2).replace(".", ",")}`;
+  const continuarPedido = async () => {
+    try {
+      await AsyncStorage.setItem(
+        "@resumo_carrinho",
+        JSON.stringify({
+          subtotal: subtotalValor,
+          descontoPercentual: percentualDesconto,
+          valorDesconto,
+          totalItens: totalItensValor,
+          cupom,
+        })
+      );
+
+      router.push("/entrega" as any);
+    } catch (erro) {
+      console.error("Erro ao continuar pedido:", erro);
+    }
+  };
 
   return (
     <View style={globalStyle.container}>
@@ -191,8 +285,7 @@ export default function CarrinhoScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={carrinhoStyle.conteudo}>
-
-              {/* HEADER */}
+              {/* CABEÇALHO */}
               <View style={carrinhoStyle.header}>
                 <Pressable
                   onPress={() => router.back()}
@@ -217,7 +310,7 @@ export default function CarrinhoScreen() {
                 />
               </View>
 
-              {/* TÍTULO DOS ITENS */}
+              {/* ITENS ADICIONADOS */}
               <View style={carrinhoStyle.topSecaoItens}>
                 <Text style={carrinhoStyle.tituloSecao}>
                   Itens adicionados
@@ -232,7 +325,7 @@ export default function CarrinhoScreen() {
                 )}
               </View>
 
-              {/* LISTA DE PRODUTOS */}
+              {/* PRODUTOS */}
               {carrinhoVazio ? (
                 <Text
                   style={{
@@ -263,6 +356,7 @@ export default function CarrinhoScreen() {
                         <Image
                           source={imagemSource}
                           style={carrinhoStyle.imgItem}
+                          resizeMode="cover"
                         />
                       </View>
 
@@ -278,7 +372,7 @@ export default function CarrinhoScreen() {
                           {item.descricao}
                         </Text>
 
-                        {item.observacao ? (
+                        {!!item.observacao && (
                           <Text
                             style={{
                               fontSize: 11,
@@ -288,7 +382,7 @@ export default function CarrinhoScreen() {
                           >
                             Obs: {item.observacao}
                           </Text>
-                        ) : null}
+                        )}
 
                         <Text style={carrinhoStyle.precoItem}>
                           {formatarPreco(
@@ -297,7 +391,6 @@ export default function CarrinhoScreen() {
                         </Text>
                       </View>
 
-                      {/* CONTROLE DE QUANTIDADE */}
                       <View style={carrinhoStyle.controleQuantidade}>
                         <Pressable
                           style={carrinhoStyle.btnQtd}
@@ -338,7 +431,7 @@ export default function CarrinhoScreen() {
                 })
               )}
 
-              {/* ADICIONAR MAIS ITENS - SEMPRE VISÍVEL */}
+              {/* SEMPRE VISÍVEL */}
               <Pressable
                 style={carrinhoStyle.btnAdicionarMais}
                 onPress={() => router.push("/menu")}
@@ -348,10 +441,10 @@ export default function CarrinhoScreen() {
                 </Text>
               </Pressable>
 
-              {/* ABAIXO SÓ APARECE SE HOUVER PRODUTOS */}
+              {/* EXIBIR SOMENTE COM PRODUTOS */}
               {!carrinhoVazio && (
                 <>
-                  {/* CAMPO DE CUPOM */}
+                  {/* CUPOM */}
                   <View style={carrinhoStyle.containerCupom}>
                     <Image
                       source={require("@/assets/images/fitbia/promo-code.png")}
@@ -424,7 +517,7 @@ export default function CarrinhoScreen() {
                     </View>
                   </View>
 
-                  {/* CHECKOUT */}
+                  {/* FINALIZAÇÃO */}
                   <View style={carrinhoStyle.barCheckout}>
                     <View style={carrinhoStyle.boxPrecoCheckout}>
                       <Text style={carrinhoStyle.totalCheckout}>
@@ -439,26 +532,7 @@ export default function CarrinhoScreen() {
 
                     <Pressable
                       style={carrinhoStyle.btnContinuar}
-                      onPress={async () => {
-                        try {
-                          await AsyncStorage.setItem(
-                            "@resumo_carrinho",
-                            JSON.stringify({
-                              subtotal: subtotalValor,
-                              descontoPercentual: percentualDesconto,
-                              valorDesconto: valorDesconto,
-                              totalItens: totalItensValor,
-                            })
-                          );
-
-                          router.push("/entrega" as any);
-                        } catch (error) {
-                          console.error(
-                            "Erro ao continuar pedido:",
-                            error
-                          );
-                        }
-                      }}
+                      onPress={continuarPedido}
                     >
                       <Text style={carrinhoStyle.txtBtnContinuar}>
                         Continuar

@@ -18,7 +18,6 @@ import loginStyle from "@/styles/loginStyle";
 
 const SERVIDOR = "http://localhost:8081";
 const API = `${SERVIDOR}/api/v1`;
-const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 
 export default function LoginScreen() {
   const params = useLocalSearchParams();
@@ -28,17 +27,14 @@ export default function LoginScreen() {
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
 
-  // Controla a mensagem de sucesso
   const [mensagemSucesso, setMensagemSucesso] = useState(
     params.senhaRedefinida === "true"
   );
 
-  // Exibe a mensagem após redefinir a senha
   useEffect(() => {
     if (params.senhaRedefinida === "true") {
       setMensagemSucesso(true);
 
-      // Limpa o parâmetro para evitar repetição
       router.setParams({
         senhaRedefinida: "",
       });
@@ -46,8 +42,11 @@ export default function LoginScreen() {
   }, [params.senhaRedefinida]);
 
   async function handleLogin() {
-    if (!email || !senha) {
-      Alert.alert("Atenção", "Por favor, preencha o e-mail e a senha.");
+    if (!email.trim() || !senha) {
+      Alert.alert(
+        "Atenção",
+        "Por favor, preencha o e-mail e a senha."
+      );
       return;
     }
 
@@ -61,7 +60,7 @@ export default function LoginScreen() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email_cliente: email,
+          email_cliente: email.trim(),
           senha_cliente: senha,
         }),
       });
@@ -80,16 +79,25 @@ export default function LoginScreen() {
         return;
       }
 
-      // Salva o token gerado pelo Sanctum
-      await AsyncStorage.setItem("token", json.data.token);
+      if (!json.data?.token) {
+        Alert.alert(
+          "Erro",
+          "O servidor não retornou um token de autenticação."
+        );
+        return;
+      }
 
-      // Remove a mensagem após login bem-sucedido
+      await AsyncStorage.setItem(
+        "token",
+        json.data.token
+      );
+
       setMensagemSucesso(false);
 
-      // Redireciona para a home
       router.replace("/home");
     } catch (erro) {
-      console.log("Erro ao fazer login:", erro);
+      console.error("Erro ao fazer login:", erro);
+
       Alert.alert(
         "Erro",
         "Não foi possível conectar ao servidor."
@@ -125,10 +133,8 @@ export default function LoginScreen() {
             Faça seu login para continuar
           </Text>
 
-          {/* Formulário de login */}
           <View style={loginStyle.form}>
-
-            {/* E-mail */}
+            {/* E-MAIL */}
             <Text style={loginStyle.tituloInput}>
               Email
             </Text>
@@ -150,7 +156,7 @@ export default function LoginScreen() {
               />
             </View>
 
-            {/* Senha */}
+            {/* SENHA */}
             <Text style={loginStyle.tituloInput}>
               Senha
             </Text>
@@ -174,9 +180,7 @@ export default function LoginScreen() {
 
               <Pressable
                 style={loginStyle.btnMostrarSenha}
-                onPress={() =>
-                  setVerSenha((current) => !current)
-                }
+                onPress={() => setVerSenha(!verSenha)}
               >
                 <Image
                   source={
@@ -189,22 +193,20 @@ export default function LoginScreen() {
               </Pressable>
             </View>
 
-            {/* Esqueci minha senha */}
+            {/* RECUPERAR SENHA */}
             <Pressable
               style={({ pressed }) => [
                 loginStyle.btnEsqueciSenha,
                 pressed && loginStyle.btnEsqueciSenhaPressed,
               ]}
-              onPress={() =>
-                router.navigate("/esqueciSenha")
-              }
+              onPress={() => router.navigate("/recuperarSenha")}
             >
               <Text style={loginStyle.txtEsqueciSenha}>
                 Esqueci minha senha
               </Text>
             </Pressable>
 
-            {/* Mensagem de sucesso sem fundo */}
+            {/* MENSAGEM DE SENHA REDEFINIDA */}
             {mensagemSucesso && (
               <Text
                 style={{
@@ -220,7 +222,7 @@ export default function LoginScreen() {
               </Text>
             )}
 
-            {/* Botão Entrar */}
+            {/* ENTRAR */}
             <Pressable
               style={({ pressed }) => [
                 loginStyle.btnEntrar,
@@ -234,23 +236,20 @@ export default function LoginScreen() {
               </Text>
             </Pressable>
 
-            {/* Criar conta */}
+            {/* CRIAR CONTA */}
             <View style={loginStyle.criarConta}>
               <Text style={loginStyle.textoCriar}>
                 Primeira vez aqui?
               </Text>
 
               <Pressable
-                onPress={() =>
-                  router.navigate("/criarConta")
-                }
+                onPress={() => router.navigate("/criarConta")}
               >
                 <Text style={loginStyle.linkCriarConta}>
                   Criar conta
                 </Text>
               </Pressable>
             </View>
-
           </View>
         </ScrollView>
       </ImageBackground>
