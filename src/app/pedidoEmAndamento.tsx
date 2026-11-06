@@ -20,7 +20,7 @@ import BottomBar from "@/components/BottomBar";
 import DetalhesPedidoModal from "@/components/detalhesPedido";
 import { cores } from "@/styles/estilos";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function PedidosScreen() {

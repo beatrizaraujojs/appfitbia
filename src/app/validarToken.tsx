@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import globalStyle from "@/styles/globalStyle";
 import validarTokenStyle from "@/styles/validarToken";
 
-const API = "http://localhost:8081/api/v1";
+const API = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 
 export default function ValidarTokenScreen() {
   const params = useLocalSearchParams();

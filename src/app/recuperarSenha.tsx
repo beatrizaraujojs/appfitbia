@@ -16,8 +16,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import recuperarSenhaStyle from "@/styles/recuperarSenhaStyle";
 import globalStyle from "@/styles/globalStyle";
-
-const API = "http://localhost:8081/api/v1";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
+const API = `${SERVIDOR}/api/v1`;
 
 export default function RecuperarSenhaScreen() {
   const [email, setEmail] = useState("");

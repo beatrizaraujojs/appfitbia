@@ -16,7 +16,7 @@ import globalStyle from "@/styles/globalStyle";
 import BottomBar from "@/components/BottomBar";
 import favoritosStyle from "@/styles/favoritosStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function FavoritosScreen() {

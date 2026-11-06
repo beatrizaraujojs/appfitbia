@@ -19,7 +19,7 @@ import ProdutoModal from "@/components/produtoModal";
 import BottomBar from "@/components/BottomBar";
 import { Produto } from "@/styles/produtoModalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 

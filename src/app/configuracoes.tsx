@@ -18,7 +18,7 @@ import ModalSair from "@/components/sair";
 import globalStyle from "@/styles/globalStyle";
 import configuracoesStyle from "@/styles/configuracoesStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM_BASE = `${SERVIDOR}/clientes`;
 

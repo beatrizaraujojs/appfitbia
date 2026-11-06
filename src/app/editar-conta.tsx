@@ -1,4 +1,3 @@
-
 import { router } from "expo-router";
 import React, { useState, useEffect, useRef } from "react";
 import {
@@ -22,7 +21,7 @@ import BottomBar from "@/components/BottomBar";
 import editarContaStyle from "@/styles/editarContaStyle";
 import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM_BASE = `${SERVIDOR}/clientes`;
 
@@ -155,7 +154,7 @@ export default function EditarContaScreen() {
         name: nomeArquivo,
         type: tipoArquivo,
         file: Platform.OS === "web"
-          ? imagem.file
+          ? (imagem as any).file
           : undefined,
       });
 
