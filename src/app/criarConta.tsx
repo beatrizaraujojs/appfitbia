@@ -17,6 +17,7 @@ import globalStyle from "@/styles/globalStyle";
 import TermosUsoModal from "@/components/termosUsoModal";
 import criarContaStyle from "@/styles/criarContaStyle";
 
+// const SERVIDOR = "http://localhost:8081";
 const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 

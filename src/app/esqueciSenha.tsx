@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import globalStyle from "../styles/globalStyle";
 import esqueciSenhaStyle from "../styles/esqueciSenhaStyle";
 
-const API = "http://localhost:8081/api/v1";
+const API = "https://colegasdev.tipi5.smpsistema.com.br/bia/api/v1";
 
 export default function EsqueciSenha() {
   const router = useRouter();

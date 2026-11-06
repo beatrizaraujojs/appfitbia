@@ -16,6 +16,7 @@ import globalStyle from "@/styles/globalStyle";
 import novoEnderecoStyle from "@/styles/novoEnderecoStyle";
 import BottomBar from "@/components/BottomBar";
 
+// const SERVIDOR = "http://localhost:8081";
 const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 

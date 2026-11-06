@@ -16,6 +16,7 @@ import {
 import globalStyle from "@/styles/globalStyle";
 import loginStyle from "@/styles/loginStyle";
 
+// const SERVIDOR = "http://localhost:8081";
 const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
