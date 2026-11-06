@@ -1,22 +1,22 @@
 
-import { useEffect, useState } from "react";
-import { router, useLocalSearchParams } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
-  View,
-  Text,
-  ImageBackground,
-  Pressable,
-  Image,
-  TextInput,
-  ScrollView,
-  Alert,
+    Alert,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 
 import globalStyle from "@/styles/globalStyle";
 import loginStyle from "@/styles/loginStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function LoginScreen() {

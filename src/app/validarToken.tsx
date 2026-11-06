@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -15,7 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import globalStyle from "@/styles/globalStyle";
 import validarTokenStyle from "@/styles/validarToken";
 
-const API = "http://localhost:8081/api/v1";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
+const API = `${SERVIDOR}/api/v1`;
 
 export default function ValidarTokenScreen() {
   const params = useLocalSearchParams();

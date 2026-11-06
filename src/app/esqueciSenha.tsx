@@ -1,23 +1,24 @@
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  ImageBackground,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  View,
-  Alert,
+    ActivityIndicator,
+    Alert,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
 
 // Caminhos relativos para corrigir o erro do TypeScript no VS Code
-import globalStyle from "../styles/globalStyle";
 import esqueciSenhaStyle from "../styles/esqueciSenhaStyle";
+import globalStyle from "../styles/globalStyle";
 
-const API = "http://localhost:8081/api/v1";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
+const API = `${SERVIDOR}/api/v1`;
 
 export default function EsqueciSenha() {
   const router = useRouter();

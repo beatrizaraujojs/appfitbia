@@ -1,23 +1,23 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
+  Alert,
   Image,
   ImageBackground,
+  Linking,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
-  Linking,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useCallback } from "react";
-import { router, useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import BottomBar from "@/components/BottomBar";
 import pagamentoStyle from "@/styles/pagamentoStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const WHATSAPP_NUMERO = "5511981826719";
 

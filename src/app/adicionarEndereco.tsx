@@ -1,23 +1,54 @@
-import React, { useState } from "react";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   ImageBackground,
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
-import { router } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import BottomBar from "@/components/BottomBar";
 import globalStyle from "@/styles/globalStyle";
 import novoEnderecoStyle from "@/styles/novoEnderecoStyle";
-import BottomBar from "@/components/BottomBar";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
+
+function normalizarTexto(valor: unknown) {
+  return String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[.,]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizarNumero(valor: unknown) {
+  return String(valor ?? "").replace(/\D/g, "");
+}
+
+function enderecoIgual(a: any, b: any) {
+  return (
+    normalizarNumero(a.cep_endereco) ===
+      normalizarNumero(b.cep_endereco) &&
+    normalizarTexto(a.rua_endereco) ===
+      normalizarTexto(b.rua_endereco) &&
+    normalizarTexto(a.numero_endereco) ===
+      normalizarTexto(b.numero_endereco) &&
+    normalizarTexto(a.bairro_endereco) ===
+      normalizarTexto(b.bairro_endereco) &&
+    normalizarTexto(a.cidade_endereco) ===
+      normalizarTexto(b.cidade_endereco)
+  );
+}
 
 export default function AdicionarEnderecoScreen() {
   const [nomeLocal, setNomeLocal] = useState("");
@@ -28,17 +59,52 @@ export default function AdicionarEnderecoScreen() {
   const [numero, setNumero] = useState("");
   const [complemento, setComplemento] = useState("");
   const [pontoReferencia, setPontoReferencia] = useState("");
+
   const [loadingCep, setLoadingCep] = useState(false);
   const [loadingSalvar, setLoadingSalvar] = useState(false);
+  const [aviso, setAviso] = useState("");
+
+  const salvandoRef = useRef(false);
+  const avisoTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
+
+  useEffect(() => {
+    return () => {
+      if (avisoTimer.current) {
+        clearTimeout(avisoTimer.current);
+      }
+    };
+  }, []);
+
+  function mostrarAviso(mensagem: string) {
+    if (avisoTimer.current) {
+      clearTimeout(avisoTimer.current);
+    }
+
+    setAviso(mensagem);
+
+    avisoTimer.current = setTimeout(() => {
+      setAviso("");
+    }, 3500);
+  }
 
   const handleCepChange = async (text: string) => {
-    const cepLimpo = text.replace(/\D/g, "");
+    const cepLimpo = text.replace(/\D/g, "").slice(0, 8);
     setCep(cepLimpo);
 
     if (cepLimpo.length === 8) {
       try {
         setLoadingCep(true);
-        const response = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`);
+
+        const response = await fetch(
+          `https://viacep.com.br/ws/${cepLimpo}/json/`
+        );
+
+        if (!response.ok) {
+          throw new Error("Falha ao consultar CEP");
+        }
+
         const data = await response.json();
 
         if (data.erro) {
@@ -49,6 +115,7 @@ export default function AdicionarEnderecoScreen() {
         setRua(data.logradouro || "");
         setBairro(data.bairro || "");
         setEstado(data.localidade || data.uf || "");
+
         if (data.complemento && !complemento) {
           setComplemento(data.complemento);
         }
@@ -61,31 +128,85 @@ export default function AdicionarEnderecoScreen() {
   };
 
   const handleSalvarEndereco = async () => {
-    if (!cep || !rua || !numero) {
-      Alert.alert("Atenção", "Preencha pelo menos o CEP, a Rua e o Número.");
+    if (salvandoRef.current) return;
+
+    if (
+      !cep.trim() ||
+      !rua.trim() ||
+      !numero.trim() ||
+      !bairro.trim() ||
+      !estado.trim()
+    ) {
+      mostrarAviso("Preencha os dados obrigatórios do endereço.");
       return;
     }
 
+    if (cep.replace(/\D/g, "").length !== 8) {
+      mostrarAviso("Informe um CEP válido.");
+      return;
+    }
+
+    salvandoRef.current = true;
+    setLoadingSalvar(true);
+
     try {
-      setLoadingSalvar(true);
       const token = await AsyncStorage.getItem("token");
+
       if (!token) {
-        Alert.alert("Erro", "Sessão expirada. Faça login novamente.");
+        Alert.alert(
+          "Erro",
+          "Sessão expirada. Faça login novamente."
+        );
         router.replace("/login" as any);
         return;
       }
 
       const bodyData = {
-        nome_endereco: nomeLocal || "Endereço de entrega",
+        nome_endereco: nomeLocal.trim() || "Endereço de entrega",
         cep_endereco: cep,
-        rua_endereco: rua,
-        numero_endereco: numero,
-        complemento_endereco: complemento,
-        ponto_referencia_endereco: pontoReferencia,
-        bairro_endereco: bairro,
-        cidade_endereco: estado || "São Paulo",
+        rua_endereco: rua.trim(),
+        numero_endereco: numero.trim(),
+        complemento_endereco: complemento.trim(),
+        ponto_referencia_endereco: pontoReferencia.trim(),
+        bairro_endereco: bairro.trim(),
+        cidade_endereco: estado.trim() || "São Paulo",
       };
 
+      // Consultar os endereços existentes antes de cadastrar.
+      const consulta = await fetch(`${API}/enderecos`, {
+        headers: {
+          Accept: "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!consulta.ok) {
+        throw new Error(
+          "Não foi possível verificar os endereços cadastrados."
+        );
+      }
+
+      const dadosConsulta = await consulta.json();
+
+      if (
+        !dadosConsulta.success ||
+        !Array.isArray(dadosConsulta.data)
+      ) {
+        throw new Error(
+          "A lista de endereços não pôde ser verificada."
+        );
+      }
+
+      const jaExiste = dadosConsulta.data.some(
+        (endereco: any) => enderecoIgual(endereco, bodyData)
+      );
+
+      if (jaExiste) {
+        mostrarAviso("Este endereço já está cadastrado!");
+        return;
+      }
+
+      // Somente cadastrar se não existir outro endereço igual.
       const response = await fetch(`${API}/enderecos`, {
         method: "POST",
         headers: {
@@ -99,20 +220,28 @@ export default function AdicionarEnderecoScreen() {
       const json = await response.json();
 
       if (response.ok && json.success) {
-        Alert.alert("Sucesso", "Endereço cadastrado com sucesso!");
+        // A tela anterior será atualizada pelo useFocusEffect.
         router.back();
+      } else if (json.errors) {
+        const primeiroErro = Object.values(json.errors)[0];
+        const mensagem = Array.isArray(primeiroErro)
+          ? String(primeiroErro[0])
+          : "Verifique os campos preenchidos.";
+
+        mostrarAviso(mensagem);
       } else {
-        if (json.errors) {
-          const primeiroErro = Object.values(json.errors)[0] as string[];
-          Alert.alert("Atenção", primeiroErro[0] || "Verifique os campos preenchidos.");
-        } else {
-          Alert.alert("Atenção", json.message || "Não foi possível salvar o endereço.");
-        }
+        mostrarAviso(
+          json.message || "Não foi possível salvar o endereço."
+        );
       }
     } catch (error) {
       console.error("Erro ao salvar endereço:", error);
-      Alert.alert("Erro de Conexão", "Não foi possível se conectar com o servidor.");
+
+      mostrarAviso(
+        "Não foi possível verificar ou salvar o endereço."
+      );
     } finally {
+      salvandoRef.current = false;
       setLoadingSalvar(false);
     }
   };
@@ -137,7 +266,9 @@ export default function AdicionarEnderecoScreen() {
               style={novoEnderecoStyle.btnVoltar}
               onPress={() => router.back()}
             >
-              <Text style={novoEnderecoStyle.txtSetaVoltar}>←</Text>
+              <Text style={novoEnderecoStyle.txtSetaVoltar}>
+                ←
+              </Text>
             </Pressable>
 
             <Text style={novoEnderecoStyle.titulo}>
@@ -163,6 +294,7 @@ export default function AdicionarEnderecoScreen() {
                   value={cep}
                   onChangeText={handleCepChange}
                 />
+
                 {loadingCep && (
                   <ActivityIndicator
                     size="small"
@@ -222,7 +354,10 @@ export default function AdicionarEnderecoScreen() {
               />
 
               <Pressable
-                style={novoEnderecoStyle.btnSalvar}
+                style={[
+                  novoEnderecoStyle.btnSalvar,
+                  loadingSalvar && { opacity: 0.6 },
+                ]}
                 onPress={handleSalvarEndereco}
                 disabled={loadingSalvar}
               >
@@ -240,6 +375,49 @@ export default function AdicionarEnderecoScreen() {
 
         <BottomBar abaAtiva="config" />
       </ImageBackground>
+
+      {/* Aviso acima de todos os elementos da tela */}
+      {aviso !== "" && (
+        <View
+          pointerEvents="none"
+          style={styles.avisoContainer}
+        >
+          <View style={styles.aviso}>
+            <Text style={styles.avisoTexto}>
+              {aviso}
+            </Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  avisoContainer: {
+    position: "absolute",
+    top: 45,
+    left: 12,
+    right: 12,
+    zIndex: 9999,
+    elevation: 20,
+    alignItems: "center",
+  },
+  aviso: {
+    backgroundColor: "#F4CCCC",
+    borderRadius: 6,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    maxWidth: "100%",
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  avisoTexto: {
+    color: "#8B2525",
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+});

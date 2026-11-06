@@ -1,23 +1,23 @@
-import { useState } from "react";
 import { router } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useState } from "react";
 import {
-  View,
-  Text,
-  ImageBackground,
-  Pressable,
-  Image,
-  TextInput,
-  ScrollView,
-  Alert,
-  ActivityIndicator,
+    ActivityIndicator,
+    Alert,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import globalStyle from "@/styles/globalStyle";
 import TermosUsoModal from "@/components/termosUsoModal";
 import criarContaStyle from "@/styles/criarContaStyle";
+import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function CriarContaScreen() {

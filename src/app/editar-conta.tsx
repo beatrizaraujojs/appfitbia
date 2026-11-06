@@ -1,28 +1,28 @@
 
 import { router } from "expo-router";
-import React, { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   Image,
   ImageBackground,
+  Platform,
   Pressable,
   ScrollView,
   Text,
   TextInput,
   View,
-  Alert,
-  ActivityIndicator,
-  Platform,
 } from "react-native";
 
-import { SafeAreaView } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import BottomBar from "@/components/BottomBar";
 import editarContaStyle from "@/styles/editarContaStyle";
 import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM_BASE = `${SERVIDOR}/clientes`;
 

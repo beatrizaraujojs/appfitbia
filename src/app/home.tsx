@@ -1,24 +1,24 @@
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import { router, useFocusEffect } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Image,
-  Text,
-  Pressable,
-  ImageBackground,
-  View,
-  TextInput,
-  ScrollView,
-} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
+import BottomBar from "@/components/BottomBar";
+import ProdutoModal from "@/components/produtoModal";
 import globalStyle from "@/styles/globalStyle";
 import homeStyle from "@/styles/homeStyle";
-import ProdutoModal from "@/components/produtoModal";
-import BottomBar from "@/components/BottomBar";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 

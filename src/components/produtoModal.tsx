@@ -1,22 +1,22 @@
 
-import React, { useState, useEffect } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  Image,
-  Pressable,
-  ScrollView,
-  TextInput,
-  Alert,
-} from "react-native";
-import { router } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import {
+    Alert,
+    Image,
+    Modal,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
-import produtoModalStyle from "../styles/produtoModalStyle";
 import { mostrarMensagemCarrinho } from "@/components/mensagemCarrinho";
+import produtoModalStyle from "../styles/produtoModalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const IMAGEM = `${SERVIDOR}/fitbia/images/produto`;
 const CHAVE_CARRINHO = "@carrinho_fitbia";
 

@@ -1,6 +1,7 @@
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
-import { useState, useCallback } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   ImageBackground,
@@ -11,15 +12,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import globalStyle from "@/styles/globalStyle";
-import carrinhoStyle from "@/styles/carrinhoStyle";
 import BottomBar from "@/components/BottomBar";
 import AdicionarCupomModal from "@/components/adicionarCupomModal";
 import ProdutoModal from "@/components/produtoModal";
+import carrinhoStyle from "@/styles/carrinhoStyle";
+import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const CHAVE_CARRINHO = "@carrinho_fitbia";
 const CHAVE_CUPOM = "@cupom_aplicado_fitbia";
 
@@ -45,7 +45,9 @@ function chaveConfiguracao(item: ItemCarrinho) {
   )
     .filter(([, quantidade]) => Number(quantidade) > 0)
     .map(([id, quantidade]) => [id, Number(quantidade)])
-    .sort(([idA], [idB]) => String(idA).localeCompare(String(idB)));
+    .sort(([idA], [idB]) =>
+      String(idA).localeCompare(String(idB))
+    );
 
   return JSON.stringify({
     id: String(item.id),
@@ -59,7 +61,11 @@ function agruparItens(itens: ItemCarrinho[]) {
   const agrupados: ItemCarrinho[] = [];
 
   itens.forEach((item, indice) => {
-    const quantidade = Math.max(1, Number(item.quantidade) || 1);
+    const quantidade = Math.max(
+      1,
+      Number(item.quantidade) || 1
+    );
+
     const precoUnitario = Number(item.precoUnitario) || 0;
 
     const existente = agrupados.find(
@@ -89,13 +95,53 @@ function agruparItens(itens: ItemCarrinho[]) {
 
 export default function CarrinhoScreen() {
   const [cupom, setCupom] = useState("");
-  const [percentualDesconto, setPercentualDesconto] = useState(0);
-  const [modalCupomVisivel, setModalCupomVisivel] = useState(false);
-  const [itensCarrinho, setItensCarrinho] = useState<ItemCarrinho[]>([]);
+  const [percentualDesconto, setPercentualDesconto] =
+    useState(0);
 
-  const [produtoModalVisivel, setProdutoModalVisivel] = useState(false);
+  const [modalCupomVisivel, setModalCupomVisivel] =
+    useState(false);
+
+  const [itensCarrinho, setItensCarrinho] =
+    useState<ItemCarrinho[]>([]);
+
+  const [produtoModalVisivel, setProdutoModalVisivel] =
+    useState(false);
+
   const [produtoSelecionado, setProdutoSelecionado] =
     useState<any>(null);
+
+  // Mensagem ao tentar continuar com o carrinho vazio
+  const [mostrarAviso, setMostrarAviso] = useState(false);
+  const temporizadorAviso = useRef<ReturnType<
+    typeof setTimeout
+  > | null>(null);
+
+  const esconderAviso = useCallback(() => {
+    if (temporizadorAviso.current) {
+      clearTimeout(temporizadorAviso.current);
+      temporizadorAviso.current = null;
+    }
+
+    setMostrarAviso(false);
+  }, []);
+
+  const exibirAviso = () => {
+    esconderAviso();
+    setMostrarAviso(true);
+
+    temporizadorAviso.current = setTimeout(() => {
+      setMostrarAviso(false);
+      temporizadorAviso.current = null;
+    }, 3000);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (temporizadorAviso.current) {
+        clearTimeout(temporizadorAviso.current);
+      }
+    };
+  }, []);
 
   const carregarCarrinho = useCallback(async () => {
     try {
@@ -124,10 +170,13 @@ export default function CarrinhoScreen() {
 
   const carregarCupomSalvo = useCallback(async () => {
     try {
-      const cupomSalvo = await AsyncStorage.getItem(CHAVE_CUPOM);
+      const cupomSalvo = await AsyncStorage.getItem(
+        CHAVE_CUPOM
+      );
 
       if (cupomSalvo) {
         const dados = JSON.parse(cupomSalvo);
+
         setCupom(dados.codigo || "");
         setPercentualDesconto(
           Number(dados.porcentagem) || 0
@@ -145,12 +194,25 @@ export default function CarrinhoScreen() {
     useCallback(() => {
       carregarCarrinho();
       carregarCupomSalvo();
-    }, [carregarCarrinho, carregarCupomSalvo])
+      esconderAviso();
+
+      return () => esconderAviso();
+    }, [
+      carregarCarrinho,
+      carregarCupomSalvo,
+      esconderAviso,
+    ])
   );
 
-  const salvarCarrinho = async (lista: ItemCarrinho[]) => {
+  const salvarCarrinho = async (
+    lista: ItemCarrinho[]
+  ) => {
     try {
       setItensCarrinho(lista);
+
+      if (lista.length > 0) {
+        esconderAviso();
+      }
 
       await AsyncStorage.setItem(
         CHAVE_CARRINHO,
@@ -176,7 +238,8 @@ export default function CarrinhoScreen() {
         return {
           ...item,
           quantidade: novaQuantidade,
-          valorTotal: item.precoUnitario * novaQuantidade,
+          valorTotal:
+            item.precoUnitario * novaQuantidade,
         };
       })
       .filter((item) => item.quantidade > 0);
@@ -200,6 +263,7 @@ export default function CarrinhoScreen() {
       setItensCarrinho([]);
       setCupom("");
       setPercentualDesconto(0);
+      esconderAviso();
     } catch (erro) {
       console.error("Erro ao limpar carrinho:", erro);
     }
@@ -233,12 +297,14 @@ export default function CarrinhoScreen() {
   };
 
   const totalItensValor = itensCarrinho.reduce(
-    (total, item) => total + (Number(item.valorTotal) || 0),
+    (total, item) =>
+      total + (Number(item.valorTotal) || 0),
     0
   );
 
   const totalQuantidadeItens = itensCarrinho.reduce(
-    (total, item) => total + (Number(item.quantidade) || 0),
+    (total, item) =>
+      total + (Number(item.quantidade) || 0),
     0
   );
 
@@ -251,9 +317,17 @@ export default function CarrinhoScreen() {
     totalItensValor - valorDesconto
   );
 
-  const carrinhoVazio = itensCarrinho.length === 0;
+  const carrinhoVazio = totalQuantidadeItens === 0;
 
   const continuarPedido = async () => {
+    // Impede a navegação com o carrinho vazio
+    if (carrinhoVazio) {
+      exibirAviso();
+      return;
+    }
+
+    esconderAviso();
+
     try {
       await AsyncStorage.setItem(
         "@resumo_carrinho",
@@ -268,7 +342,10 @@ export default function CarrinhoScreen() {
 
       router.push("/entrega" as any);
     } catch (erro) {
-      console.error("Erro ao continuar pedido:", erro);
+      console.error(
+        "Erro ao continuar pedido:",
+        erro
+      );
     }
   };
 
@@ -316,13 +393,19 @@ export default function CarrinhoScreen() {
                   Itens adicionados
                 </Text>
 
-                {!carrinhoVazio && (
-                  <Pressable onPress={limparCarrinho}>
-                    <Text style={carrinhoStyle.txtLimpar}>
-                      Limpar
-                    </Text>
-                  </Pressable>
-                )}
+                <Pressable
+                  onPress={limparCarrinho}
+                  disabled={carrinhoVazio}
+                >
+                  <Text
+                    style={[
+                      carrinhoStyle.txtLimpar,
+                      carrinhoVazio && { opacity: 0.5 },
+                    ]}
+                  >
+                    Limpar
+                  </Text>
+                </Pressable>
               </View>
 
               {/* PRODUTOS */}
@@ -331,7 +414,8 @@ export default function CarrinhoScreen() {
                   style={{
                     textAlign: "center",
                     marginVertical: 20,
-                    color: "#666",
+                    color: "#888",
+                    fontSize: 12,
                   }}
                 >
                   O seu carrinho está vazio.
@@ -352,7 +436,9 @@ export default function CarrinhoScreen() {
                         { marginBottom: 12 },
                       ]}
                     >
-                      <View style={carrinhoStyle.boxImagemItem}>
+                      <View
+                        style={carrinhoStyle.boxImagemItem}
+                      >
                         <Image
                           source={imagemSource}
                           style={carrinhoStyle.imgItem}
@@ -391,7 +477,11 @@ export default function CarrinhoScreen() {
                         </Text>
                       </View>
 
-                      <View style={carrinhoStyle.controleQuantidade}>
+                      <View
+                        style={
+                          carrinhoStyle.controleQuantidade
+                        }
+                      >
                         <Pressable
                           style={carrinhoStyle.btnQtd}
                           onPress={() =>
@@ -401,7 +491,9 @@ export default function CarrinhoScreen() {
                             )
                           }
                         >
-                          <Text style={carrinhoStyle.txtBtnQtd}>
+                          <Text
+                            style={carrinhoStyle.txtBtnQtd}
+                          >
                             +
                           </Text>
                         </Pressable>
@@ -421,7 +513,9 @@ export default function CarrinhoScreen() {
                         >
                           <Image
                             source={require("@/assets/images/fitbia/lixeira-de-reciclagem.png")}
-                            style={carrinhoStyle.iconeLixeira}
+                            style={
+                              carrinhoStyle.iconeLixeira
+                            }
                             resizeMode="contain"
                           />
                         </Pressable>
@@ -431,132 +525,198 @@ export default function CarrinhoScreen() {
                 })
               )}
 
-              {/* SEMPRE VISÍVEL */}
+              {/* ADICIONAR MAIS ITENS */}
               <Pressable
                 style={carrinhoStyle.btnAdicionarMais}
                 onPress={() => router.push("/menu")}
               >
-                <Text style={carrinhoStyle.txtAdicionarMais}>
+                <Text
+                  style={carrinhoStyle.txtAdicionarMais}
+                >
                   Adicionar mais itens
                 </Text>
               </Pressable>
 
-              {/* EXIBIR SOMENTE COM PRODUTOS */}
-              {!carrinhoVazio && (
-                <>
-                  {/* CUPOM */}
-                  <View style={carrinhoStyle.containerCupom}>
-                    <Image
-                      source={require("@/assets/images/fitbia/promo-code.png")}
-                      style={carrinhoStyle.iconeCupom}
-                      resizeMode="contain"
-                    />
+              {/* CUPOM - SEMPRE VISÍVEL */}
+              <View style={carrinhoStyle.containerCupom}>
+                <Image
+                  source={require("@/assets/images/fitbia/promo-code.png")}
+                  style={carrinhoStyle.iconeCupom}
+                  resizeMode="contain"
+                />
 
-                    <Pressable
-                      style={carrinhoStyle.boxInputCupom}
-                      onPress={() => setModalCupomVisivel(true)}
-                    >
-                      <Text style={carrinhoStyle.labelCupom}>
-                        Cupom
-                      </Text>
+                <Pressable
+                  style={carrinhoStyle.boxInputCupom}
+                  onPress={() =>
+                    setModalCupomVisivel(true)
+                  }
+                >
+                  <Text style={carrinhoStyle.labelCupom}>
+                    Cupom
+                  </Text>
 
-                      <TextInput
-                        style={carrinhoStyle.inputCupom}
-                        value={cupom}
-                        editable={false}
-                        pointerEvents="none"
-                        placeholder="Adicionar cupom"
-                        placeholderTextColor="#A0A0A0"
-                      />
-                    </Pressable>
+                  <TextInput
+                    style={carrinhoStyle.inputCupom}
+                    value={cupom}
+                    editable={false}
+                    pointerEvents="none"
+                    placeholder="Adicionar cupom"
+                    placeholderTextColor="#A0A0A0"
+                  />
+                </Pressable>
 
-                    <Pressable
-                      style={carrinhoStyle.btnAplicarCupom}
-                      onPress={() => setModalCupomVisivel(true)}
-                    >
-                      <Text style={carrinhoStyle.txtBtnCupom}>
-                        {cupom ? "Alterar" : "Adicionar"}
-                      </Text>
-                    </Pressable>
-                  </View>
+                <Pressable
+                  style={carrinhoStyle.btnAplicarCupom}
+                  onPress={() =>
+                    setModalCupomVisivel(true)
+                  }
+                >
+                  <Text style={carrinhoStyle.txtBtnCupom}>
+                    {cupom ? "Alterar" : "Adicionar"}
+                  </Text>
+                </Pressable>
+              </View>
 
-                  {/* RESUMO DE VALORES */}
-                  <View style={carrinhoStyle.secaoResumo}>
-                    <Text style={carrinhoStyle.tituloResumo}>
-                      Resumo de valores
-                    </Text>
+              {/* RESUMO - SEMPRE VISÍVEL */}
+              <View style={carrinhoStyle.secaoResumo}>
+                <Text style={carrinhoStyle.tituloResumo}>
+                  Resumo de valores
+                </Text>
 
-                    <View style={carrinhoStyle.linhaResumo}>
-                      <Text style={carrinhoStyle.labelResumo}>
-                        Total dos itens
-                      </Text>
+                <View style={carrinhoStyle.linhaResumo}>
+                  <Text style={carrinhoStyle.labelResumo}>
+                    Total dos itens
+                  </Text>
 
-                      <Text style={carrinhoStyle.valorResumo}>
-                        {formatarPreco(totalItensValor)}
-                      </Text>
-                    </View>
+                  <Text style={carrinhoStyle.valorResumo}>
+                    {formatarPreco(totalItensValor)}
+                  </Text>
+                </View>
 
-                    <View style={carrinhoStyle.linhaResumo}>
-                      <Text style={carrinhoStyle.labelDesconto}>
-                        Desconto ({percentualDesconto}%)
-                      </Text>
+                <View style={carrinhoStyle.linhaResumo}>
+                  <Text style={carrinhoStyle.labelDesconto}>
+                    Desconto ({percentualDesconto}%)
+                  </Text>
 
-                      <Text style={carrinhoStyle.valorDesconto}>
-                        {formatarPreco(valorDesconto)}
-                      </Text>
-                    </View>
+                  <Text
+                    style={carrinhoStyle.valorDesconto}
+                  >
+                    {formatarPreco(valorDesconto)}
+                  </Text>
+                </View>
 
-                    <View style={carrinhoStyle.linhaResumoSubtotal}>
-                      <Text style={carrinhoStyle.labelSubtotal}>
-                        Subtotal
-                      </Text>
+                <View
+                  style={
+                    carrinhoStyle.linhaResumoSubtotal
+                  }
+                >
+                  <Text
+                    style={carrinhoStyle.labelSubtotal}
+                  >
+                    Subtotal
+                  </Text>
 
-                      <Text style={carrinhoStyle.valorSubtotal}>
-                        {formatarPreco(subtotalValor)}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text
+                    style={carrinhoStyle.valorSubtotal}
+                  >
+                    {formatarPreco(subtotalValor)}
+                  </Text>
+                </View>
+              </View>
 
-                  {/* FINALIZAÇÃO */}
-                  <View style={carrinhoStyle.barCheckout}>
-                    <View style={carrinhoStyle.boxPrecoCheckout}>
-                      <Text style={carrinhoStyle.totalCheckout}>
-                        {formatarPreco(subtotalValor)}
-                      </Text>
+              {/* FINALIZAÇÃO - SEMPRE VISÍVEL */}
+              <View style={carrinhoStyle.barCheckout}>
+                <View
+                  style={
+                    carrinhoStyle.boxPrecoCheckout
+                  }
+                >
+                  <Text
+                    style={carrinhoStyle.totalCheckout}
+                  >
+                    {formatarPreco(subtotalValor)}
+                  </Text>
 
-                      <Text style={carrinhoStyle.qtdItensCheckout}>
-                        {" "}
-                        / {totalQuantidadeItens} item(s)
-                      </Text>
-                    </View>
+                  <Text
+                    style={
+                      carrinhoStyle.qtdItensCheckout
+                    }
+                  >
+                    {" "}
+                    / {totalQuantidadeItens} item(s)
+                  </Text>
+                </View>
 
-                    <Pressable
-                      style={carrinhoStyle.btnContinuar}
-                      onPress={continuarPedido}
-                    >
-                      <Text style={carrinhoStyle.txtBtnContinuar}>
-                        Continuar
-                      </Text>
-                    </Pressable>
-                  </View>
-                </>
-              )}
+                <Pressable
+                  style={carrinhoStyle.btnContinuar}
+                  onPress={continuarPedido}
+                >
+                  <Text
+                    style={carrinhoStyle.txtBtnContinuar}
+                  >
+                    Continuar
+                  </Text>
+                </Pressable>
+              </View>
             </View>
           </ScrollView>
 
           <ProdutoModal
             visible={produtoModalVisivel}
-            onClose={() => setProdutoModalVisivel(false)}
+            onClose={() =>
+              setProdutoModalVisivel(false)
+            }
             produto={produtoSelecionado}
           />
 
           <AdicionarCupomModal
             visible={modalCupomVisivel}
-            onClose={() => setModalCupomVisivel(false)}
+            onClose={() =>
+              setModalCupomVisivel(false)
+            }
             onAplicarCupom={handleAplicarCupom}
           />
 
           <BottomBar abaAtiva="carrinho" />
+
+          {/* AVISO - APARECE SOMENTE AO CLICAR */}
+          {mostrarAviso && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: 12,
+                left: 8,
+                right: 8,
+                alignItems: "center",
+                zIndex: 999,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#C8D9C9",
+                  borderRadius: 5,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  maxWidth: "100%",
+                  alignItems: "center",
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                  style={{
+                    color: "#285C38",
+                    fontSize: 11,
+                    textAlign: "center",
+                  }}
+                >
+                  Adicione um ou mais produtos ao carrinho para continuar.
+                </Text>
+              </View>
+            </View>
+          )}
         </SafeAreaView>
       </ImageBackground>
     </View>

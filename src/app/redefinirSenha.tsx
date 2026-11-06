@@ -1,22 +1,23 @@
 
-import { useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Image,
-  Text,
-  Pressable,
-  ImageBackground,
-  View,
-  TextInput,
-  ScrollView,
+    ActivityIndicator,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TextInput,
+    View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import globalStyle from "@/styles/globalStyle";
 import redefinirSenhaStyle from "@/styles/redefinirSenhaStyle";
 
-const API = "http://localhost:8081/api/v1";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
+const API = `${SERVIDOR}/api/v1`;
 
 export default function RedefinirSenhaScreen() {
   const params = useLocalSearchParams();

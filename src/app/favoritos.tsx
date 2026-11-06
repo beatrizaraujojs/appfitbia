@@ -1,22 +1,22 @@
-import React, { useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import {
-  View,
-  Text,
-  Image,
-  Pressable,
-  ScrollView,
-  ImageBackground,
-  Alert,
+    Alert,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import globalStyle from "@/styles/globalStyle";
 import BottomBar from "@/components/BottomBar";
 import favoritosStyle from "@/styles/favoritosStyle";
+import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function FavoritosScreen() {

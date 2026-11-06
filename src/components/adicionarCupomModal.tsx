@@ -1,15 +1,15 @@
-import React, { useState } from "react";
-import {
-  Modal,
-  View,
-  Text,
-  TextInput,
-  Pressable,
-  Image,
-  StyleSheet,
-  Alert,
-} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useState } from "react";
+import {
+    Alert,
+    Image,
+    Modal,
+    Pressable,
+    StyleSheet,
+    Text,
+    TextInput,
+    View,
+} from "react-native";
 
 interface ModalProps {
   visible: boolean;
@@ -17,7 +17,7 @@ interface ModalProps {
   onAplicarCupom?: (codigo: string, desconto: number) => void;
 }
 
-const SERVIDOR = "http://localhost:8081"; // Alinha com a porta do teu projeto
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia"; // Alinha com a porta do teu projeto
 
 export default function AdicionarCupomModal({
   visible,

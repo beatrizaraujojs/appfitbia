@@ -1,6 +1,6 @@
-
-import React, { useState, useCallback } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, useFocusEffect } from "expo-router";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Image,
@@ -12,15 +12,14 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
 
-import globalStyle from "@/styles/globalStyle";
-import entregaStyle from "@/styles/entregaStyle";
 import BottomBar from "@/components/BottomBar";
 import TrocaDeEnderecoModal from "@/components/trocaDeEndereco";
+import entregaStyle from "@/styles/entregaStyle";
+import globalStyle from "@/styles/globalStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function EntregaScreen() {
@@ -28,12 +27,36 @@ export default function EntregaScreen() {
     useState<"entrega" | "retirada">("entrega");
 
   const [modalEnderecoVisivel, setModalEnderecoVisivel] = useState(false);
-
   const [enderecoAtual, setEnderecoAtual] = useState<any | null>(null);
   const [loadingEndereco, setLoadingEndereco] = useState(true);
 
   const [subtotalCarrinho, setSubtotalCarrinho] = useState(0);
   const [qtdItensCarrinho, setQtdItensCarrinho] = useState(0);
+
+  // Mensagem de confirmação
+  const [aviso, setAviso] = useState("");
+  const timerAviso = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function mostrarAviso(mensagem: string) {
+    if (timerAviso.current) {
+      clearTimeout(timerAviso.current);
+    }
+
+    setAviso(mensagem);
+
+    timerAviso.current = setTimeout(() => {
+      setAviso("");
+      timerAviso.current = null;
+    }, 3000);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (timerAviso.current) {
+        clearTimeout(timerAviso.current);
+      }
+    };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -64,7 +87,6 @@ export default function EntregaScreen() {
 
         setQtdItensCarrinho(quantidade);
 
-        // Caso o resumo não exista, calcular pelos produtos
         if (!resumoSalvo) {
           const subtotalBruto = itens.reduce(
             (acc: number, item: any) => acc + (item.valorTotal || 0),
@@ -132,16 +154,18 @@ export default function EntregaScreen() {
     }
   }
 
-  // Trocar endereço
+  // Trocar endereço e mostrar confirmação
   async function selecionarNovoEndereco(endereco: any) {
-    setEnderecoAtual(endereco);
-    setModalEnderecoVisivel(false);
-
     try {
       await AsyncStorage.setItem(
         "enderecoSelecionado",
         JSON.stringify(endereco)
       );
+
+      setEnderecoAtual(endereco);
+      setModalEnderecoVisivel(false);
+
+      mostrarAviso("Endereço de entrega alterado com sucesso!");
     } catch (error) {
       console.error("Erro ao salvar endereço selecionado:", error);
     }
@@ -160,7 +184,6 @@ export default function EntregaScreen() {
         .join(", ")
     : "";
 
-  // URL dinâmica do mapa
   const urlMapa = enderecoCompleto
     ? `https://maps.google.com/maps?q=${encodeURIComponent(
         enderecoCompleto
@@ -197,7 +220,7 @@ export default function EntregaScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={entregaStyle.conteudo}>
-              {/* Header */}
+              {/* Cabeçalho */}
               <View style={entregaStyle.header}>
                 <Pressable
                   onPress={() => router.back()}
@@ -220,7 +243,6 @@ export default function EntregaScreen() {
                 />
               </View>
 
-              {/* Entrega ou retirada */}
               <Text style={entregaStyle.tituloSecao}>
                 Entrega ou retirada
               </Text>
@@ -314,7 +336,6 @@ export default function EntregaScreen() {
               </Text>
 
               <View style={entregaStyle.opcoesContainer}>
-                {/* Entregar no endereço */}
                 <Pressable
                   style={[
                     entregaStyle.cardOpcao,
@@ -327,12 +348,7 @@ export default function EntregaScreen() {
                     Entregar no endereço
                   </Text>
 
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                    }}
-                  >
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
                     <Text style={entregaStyle.valorEntrega}>
                       R$ 10,00
                     </Text>
@@ -351,7 +367,6 @@ export default function EntregaScreen() {
                   </View>
                 </Pressable>
 
-                {/* Retirada na loja */}
                 <Pressable
                   style={[
                     entregaStyle.cardOpcao,
@@ -402,7 +417,6 @@ export default function EntregaScreen() {
             </View>
           </ScrollView>
 
-          {/* Modal de troca de endereço */}
           <TrocaDeEnderecoModal
             visible={modalEnderecoVisivel}
             onClose={() => setModalEnderecoVisivel(false)}
@@ -410,6 +424,45 @@ export default function EntregaScreen() {
           />
 
           <BottomBar abaAtiva="carrinho" />
+
+          {/* Aviso verde */}
+          {!!aviso && (
+            <View
+              pointerEvents="none"
+              style={{
+                position: "absolute",
+                top: 12,
+                left: 8,
+                right: 8,
+                alignItems: "center",
+                zIndex: 999,
+                elevation: 10,
+              }}
+            >
+              <View
+                style={{
+                  backgroundColor: "#C8D9C9",
+                  borderRadius: 5,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                  maxWidth: "100%",
+                }}
+              >
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.65}
+                  style={{
+                    color: "#285C38",
+                    fontSize: 11,
+                    textAlign: "center",
+                  }}
+                >
+                  {aviso}
+                </Text>
+              </View>
+            </View>
+          )}
         </SafeAreaView>
       </ImageBackground>
     </View>

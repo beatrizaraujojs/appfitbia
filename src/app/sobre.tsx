@@ -15,6 +15,8 @@ import BottomBar from "@/components/BottomBar";
 import globalStyle from "@/styles/globalStyle";
 import sobreStyle from "@/styles/sobreStyle";
 
+
+
 export default function SobreScreen() {
   const abrirLink = (url: string) => {
     Linking.openURL(url).catch((err) =>

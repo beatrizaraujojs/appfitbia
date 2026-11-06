@@ -1,26 +1,26 @@
-import React, { useState, useCallback } from "react";
-import { router, useFocusEffect } from "expo-router";
-import { SafeAreaView } from "react-native-safe-area-context";
-import {
-  Image,
-  Text,
-  Pressable,
-  ImageBackground,
-  View,
-  ScrollView,
-  TouchableOpacity,
-  ActivityIndicator,
-} from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+    ActivityIndicator,
+    Image,
+    ImageBackground,
+    Pressable,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
-import globalStyle from "@/styles/globalStyle";
-import pedidossStyle from "@/styles/pedidossStyle";
-import DivisoriaOndulada from "@/components/divisoriaOndulada";
 import BottomBar from "@/components/BottomBar";
 import DetalhesPedidoModal from "@/components/detalhesPedido";
+import DivisoriaOndulada from "@/components/divisoriaOndulada";
 import { cores } from "@/styles/estilos";
+import globalStyle from "@/styles/globalStyle";
+import pedidossStyle from "@/styles/pedidossStyle";
 
-const SERVIDOR = "http://localhost:8081";
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 const API = `${SERVIDOR}/api/v1`;
 
 export default function PedidosScreen() {

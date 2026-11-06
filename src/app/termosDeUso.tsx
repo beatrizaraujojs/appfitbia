@@ -13,6 +13,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import BottomBar from "@/components/BottomBar";
 import globalStyle from "@/styles/globalStyle";
 import termosdeUsoSobrestyle from "@/styles/termosdeUsoSobrestyle";
+
+
  
 export default function TermosUsoSobreScreen() {
   return (
