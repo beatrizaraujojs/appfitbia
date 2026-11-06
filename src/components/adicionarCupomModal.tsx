@@ -17,7 +17,7 @@ interface ModalProps {
   onAplicarCupom?: (codigo: string, desconto: number) => void;
 }
 
-const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia"; // Alinha com a porta do teu projeto
+const SERVIDOR = "https://colegasdev.tipi5.smpsistema.com.br/bia";
 
 export default function AdicionarCupomModal({
   visible,

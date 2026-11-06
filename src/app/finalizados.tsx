@@ -252,7 +252,7 @@ export default function PedidosFinalizadosScreen() {
             </View>
           </ScrollView>
  
-          <BottomBar />
+          <BottomBar abaAtiva="pedidoEmAndamento" />
  
           {/* Modal de Detalhes do Pedido Pressionado */}
           <DetalhesFinalizadoModal

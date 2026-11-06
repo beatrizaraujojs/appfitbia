@@ -1,4 +1,3 @@
-
 import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -155,7 +154,7 @@ export default function EditarContaScreen() {
         name: nomeArquivo,
         type: tipoArquivo,
         file: Platform.OS === "web"
-          ? imagem.file
+          ? (imagem as any).file
           : undefined,
       });
 
